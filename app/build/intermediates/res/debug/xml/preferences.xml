@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+	<PreferenceCategory 
+	    android:title="Varramie Settings">
+	    
+	    <CheckBoxPreference 
+	        android:key="hide_others"
+	        android:title="Hide others"
+	        android:summary="Tick to hide others using the app."
+	        android:defaultValue="false"/>
+	    
+	    
+	</PreferenceCategory>    
+
+</PreferenceScreen>
+<!-- From: file:/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/src/main/res/xml/preferences.xml -->
