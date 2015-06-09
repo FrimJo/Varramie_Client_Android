@@ -1,6 +1,8 @@
 package com.spots.varramie;
 
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 
 import android.graphics.Color;
@@ -9,26 +11,31 @@ import android.util.SparseArray;
 
 public class Spot {
 
-	private static SparseArray<Spot> allSpots = new SparseArray<Spot>();
-	private static Spot mySpot = new Spot(-1, true);
+	private static final SparseArray<Spot> allSpots = new SparseArray<Spot>();
+	private static final Spot mySpot = new Spot();
 	private static boolean defaultHiden = false;
 	
 	private int color = ColorManager.getRealRandomColor();
-	private ArrayList<Point> pointsList = new ArrayList<Point>();
+	private final ArrayList<Point> pointsList = new ArrayList<Point>();
+	private Point point = new Point(0,0);
 	private boolean active = false;
 	private boolean hidden = defaultHiden;
-	private final RemoveThread removeThread = new RemoveThread(this);
-	//private final Point currentPoint = new Point();
-	private final int id;
+	//private final RemoveThread removeThread = new RemoveThread(this);
+	private int id;
 	
 	private int index = 0;
-	
-	public Spot(final int id, boolean isMySpot){
+
+	public Spot(){
+		this.id = -1;
+		//this.removeThread.setRunning(true);
+		//this.removeThread.start();
+	}
+
+	public Spot(final int id){
 		this.id = id;
-		if(!isMySpot)
-			allSpots.put(id, this);
-		this.removeThread.setRunning(true);
-		this.removeThread.start();
+		//this.removeThread.setRunning(true);
+		//this.removeThread.start();
+		allSpots.put(id, this);
 	}
 	
 	public int getColor(){
@@ -45,60 +52,56 @@ public class Spot {
 	}
 	
 	public synchronized void activate(Point p){
-		this.removeThread.interrupt();
+		//this.removeThread.interrupt();
 		this.active = true;
 		update(p);
 	}
 	
 	public synchronized void update(Point p){
-		if(isActive()){
-			this.pointsList.add(p);
-			
-//			this.currentPoint.x = p.x;
-//			this.currentPoint.y = p.y;
-		}
+		this.active = true;
+		this.point.x = p.x;
+		this.point.y = p.y;
+		//this.pointsList.add(p);
 	}
 	
 	public synchronized void deactivate(Point p){
-		update(p);
 		this.active = false;
 	}
 	
 	public synchronized boolean isActive(){
-//		if(this.hidden)
-//			return false;
-//		else if(!this.active)
-//			return false;
-//		return true;
-		
-		return (!this.hidden && this.active);
+		return (!this.hidden && (this.active/* || this.pointsList.size() > 1*/));
 	}
 	
 	public synchronized Point getPoint(){
 
-		Point p = null;
+		/*Point p = null;
 		try{
 			p = this.pointsList.get(this.index);
 			this.index++;
 		}catch(IndexOutOfBoundsException e){
 			this.index = 0;
 		}
-		return p;	
+		return p;*/
+		return this.point;
 	}
 	
-	public synchronized int sizeOfPointList(){
+	/*public synchronized int sizeOfPointList(){
 		return this.pointsList.size();
+	}*/
+
+	/*public synchronized int sizeOfPointListForKey(int key){
+		return getSpot(key).pointsList.size();
 	}
 	
 	public synchronized void removePoint(){
 		if(!this.pointsList.isEmpty())
 			this.pointsList.remove(0);
-	}
+	}*/
 	
 	public synchronized void destroy(){
 		allSpots.remove(this.id);
 		
-	    boolean retry = true;
+	    /*boolean retry = true;
 	    this.removeThread.setRunning(false);
 	    while (retry) {
 	      try {
@@ -106,7 +109,7 @@ public class Spot {
 	        retry = false;
 	      } catch (InterruptedException e) {
 	      }
-	    }
+	    }*/
 	}
 	
 	public synchronized int getId(){
@@ -121,7 +124,7 @@ public class Spot {
 		return allSpots.get(key);
 	}
 
-	public synchronized static void putSpot(int key, Spot value){
+	public synchronized static void putSpot(final int key, final Spot value){
 		allSpots.put(key, value);
 	}
 	
@@ -136,6 +139,15 @@ public class Spot {
 	public synchronized static Point getMySpotPoint(){
 		return mySpot.getPoint();
 	}
+
+	public synchronized static int getMySpotId(){
+		return mySpot.getId();
+	}
+
+	public synchronized static void setMySpotId(final int id){
+		mySpot.id = id;
+	}
+
 	
 	public synchronized static void activateMySpot(Point p){
 		mySpot.activate(p);
@@ -193,7 +205,7 @@ public class Spot {
 		return true;
 	}
 	
-	private class RemoveThread extends Thread{
+	/*private class RemoveThread extends Thread{
 		private boolean run = false;
 		private Spot spot;	
 		
@@ -217,5 +229,5 @@ public class Spot {
 		public void setRunning(boolean status) { 
 			run = status;
 		}
-	}
+	}*/
 }

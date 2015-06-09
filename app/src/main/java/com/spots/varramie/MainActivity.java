@@ -1,15 +1,21 @@
 package com.spots.varramie;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
+import android.content.Context;
+import android.net.wifi.WifiManager;
 import android.support.v7.app.ActionBarActivity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Toast;
 /*import com.google.android.vending.licensing.LicenseChecker;
 import com.google.android.vending.licensing.LicenseCheckerCallback;
 import com.google.android.vending.licensing.ServerManagedPolicy;
@@ -19,33 +25,33 @@ import com.google.android.vending.licensing.AESObfuscator;*/
 public class MainActivity extends ActionBarActivity{
 
 	//private final int PREFERENCE_MODE_PRIVATE = 0;
-    
+    private static WifiManager.MulticastLock multicastLock;
+	private Intent startService;
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-//		PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
-//		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-//		
-//		boolean test = prefs.getBoolean("hide_others", false);
-		
-		//prefs.edit().putBoolean("hide_others", prefs.getBoolean("hide_others", true)).commit();
-		
+
+		WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		multicastLock = wifi.createMulticastLock("multicastLock");
+
 		SpotSurfaceView surface = new SpotSurfaceView(this);
 		setContentView(surface);
-		Client.INSTANCE.init(new IGUI(){
+		Client.INSTANCE.init(new IGUI() {
 
 			private final Vibrator vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-			
+
 			@Override
 			public void print(String str) {
+				Log.d("MESSAGE", str);
 				System.out.print(str);
-				
+
 			}
 
 			@Override
 			public void println(String str) {
-				System.out.println(str);
-				
+				Log.d("MESSAGE", str);
+
 			}
 
 			@Override
@@ -58,7 +64,8 @@ public class MainActivity extends ActionBarActivity{
 				this.vibrator.vibrate(300);
 			}
 		});
-		
+
+		StartServices();
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		Spot.setDefaultHidden(pref.getBoolean("hide_others", false));
 	}
@@ -83,7 +90,8 @@ public class MainActivity extends ActionBarActivity{
 			startActivityForResult(new Intent(this, EmptyActivity.class), RESULT_OK);
 			return true;
 		case R.id.action_exit:
-			
+			stopService(this.startService);
+			finish();
 			return true;
 		default:
 			break;
@@ -94,16 +102,45 @@ public class MainActivity extends ActionBarActivity{
 	
 	@Override
 	protected void onDestroy(){
-		super.onDestroy();
 		try {
 			Client.INSTANCE.shutDown();
 		} catch (IOException e) {
 			// Catches the exception and does nothing.
 		}
 		System.out.println("onDestroy in MainActivity");
+		super.onDestroy();
 	}
 	
 	public SharedPreferences getPreferences(){
 		return PreferenceManager.getDefaultSharedPreferences(this);
+	}
+
+	public static void unlockMulticast(){
+		multicastLock.setReferenceCounted(true);
+		multicastLock.acquire();
+	}
+
+	public static void lockMulticast(){
+		if (multicastLock != null) {
+			multicastLock.release();
+			multicastLock = null;
+		}
+	}
+
+	private void StartServices()
+	{
+		// Start UDPService
+		this.startService = new Intent(getBaseContext(), UDP.class);
+		byte[] byteAddress = new byte[0];
+		try {
+			byteAddress = InetAddress.getByName("194.165.237.13").getAddress();
+			this.startService.putExtra("SERVER_IP_BYTE", byteAddress);
+			this.startService.putExtra("SERVER_PORT_INT", 8001);
+			this.startService(this.startService);
+		} catch (UnknownHostException e) {
+			Toast.makeText(getBaseContext(), "Could not start network service, pleae restart the app.", Toast.LENGTH_SHORT).show();
+		}
+
+
 	}
 }

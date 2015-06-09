@@ -140,20 +140,20 @@ public class SpotSurfaceView extends SurfaceView implements SurfaceHolder.Callba
 				Spot s = Spot.getSpotAt(i);
 				if(s.isActive()){
 					Point p = s.getPoint();
-					for(int counter = 0; p != null; counter++){
-						paintCircle.setColor(s.getDynamicColor(counter));
+					//for(int counter = 0; p != null; counter++){
+						paintCircle.setColor(s.getDynamicColor(0/*counter*/));
 						canvas.drawCircle(p.x, p.y, 30, paintCircle);	
-						p = s.getPoint();
-					}
+					//	p = s.getPoint();
+					//}
 				}
 			}
 			if(Spot.isMySpotActive()){
 				Point p = Spot.getMySpotPoint();
-				for(int counter = 0; p != null; counter++){
-					paintCircle.setColor(Spot.getMySpotDynamicColor(counter));
+				//for(int counter = 0; p != null; counter++){
+					paintCircle.setColor(Spot.getMySpotDynamicColor(0/*counter*/));
 					canvas.drawCircle(p.x, p.y, 30, paintCircle);	
-					p = Spot.getMySpotPoint();
-				}
+				//	p = Spot.getMySpotPoint();
+				//}
 			}
 			canvas.restore();
 			

@@ -6,16 +6,37 @@ import java.net.InetAddress;
 
 public class PDU_Factory {
 	
-	public static PDU touch_action(final float x, final float y, final int opCode){
+	public static PDU touch_action(final float x, final float y, final int action){
 
 		PDU pdu = new PDU(9);
-		pdu.setByte(0, (byte) opCode);
+		pdu.setByte(0, (byte) action);
+		//pdu.setByte(1, (byte) 10);
 		pdu.setInt(1, Math.round(x));
 		pdu.setInt(5, Math.round(y));
 
 		return pdu;
 	}
-	
+
+	public static PDU join() {
+		PDU pdu = new PDU(1);
+		pdu.setByte(0, (byte) OpCodes.JOIN);
+		//pdu.setByte(1, (byte) 2);
+		return pdu;
+	}
+
+	public static PDU alive(final int id) {
+		PDU pdu = new PDU(5);
+		pdu.setByte(0, (byte) OpCodes.ALIVE);
+		//pdu.setByte(1, (byte) 6);
+		pdu.setInt(1, id);
+		return pdu;
+	}
+
+	public static PDU quit() {
+		PDU pdu = new PDU(1);
+		pdu.setByte(0, (byte) OpCodes.ALIVE);
+		return pdu;
+	}
 	
 	/**
 	 * Creates message PDU
@@ -73,35 +94,6 @@ public class PDU_Factory {
 		return orgChecksum == newChecksum;	
 	}
 
-	/**
-	 * Creates join PDU
-	 * Client -> Server
-	 * Used for connecting to a server.
-	 * @param nick Preferred name.
-	 * @return join PDU
-	 */
-	public static PDU join(String nick) {
-
-
-		byte[] utfBytes;
-		try {
-			utfBytes = nick.getBytes("UTF-8");
-		} catch (UnsupportedEncodingException e1) {
-			utfBytes = nick.getBytes();
-		}
-		int nickLength = utfBytes.length;
-		utfBytes = appendZeros(utfBytes);
-		
-		/* Generate a PDU-message to use when
-		 * connecting  to the server. */
-		PDU message = new PDU(4 + utfBytes.length);
-		message.setByte(0, (byte) OpCodes.JOIN);
-		message.setByte(1, (byte) nickLength);
-		message.setSubrange(2, new byte[] {'\0', '\0'});
-		message.setSubrange(4, utfBytes);
-		
-		return message;
-	}
 	
 	/**
 	 * Appends \0 to each string and event out
