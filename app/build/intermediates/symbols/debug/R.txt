@@ -591,9 +591,10 @@ int string pref_title_sync_frequency 0x7f060020
 int string pref_title_system_sync_settings 0x7f060021
 int string pref_title_vibrate 0x7f060022
 int string status_bar_notification_info_overflow 0x7f060023
-int string title_activity_empty 0x7f060024
-int string title_activity_main 0x7f060025
-int string title_activity_settings 0x7f060026
+int string test_activity_string 0x7f060024
+int string title_activity_empty 0x7f060025
+int string title_activity_main 0x7f060026
+int string title_activity_settings 0x7f060027
 int style AlertDialog_AppCompat 0x7f080074
 int style AlertDialog_AppCompat_Light 0x7f080075
 int style Animation_AppCompat_Dialog 0x7f080076

@@ -1718,9 +1718,10 @@ containing a value of this type.
         public static final int pref_title_system_sync_settings=0x7f060021;
         public static final int pref_title_vibrate=0x7f060022;
         public static final int status_bar_notification_info_overflow=0x7f060023;
-        public static final int title_activity_empty=0x7f060024;
-        public static final int title_activity_main=0x7f060025;
-        public static final int title_activity_settings=0x7f060026;
+        public static final int test_activity_string=0x7f060024;
+        public static final int title_activity_empty=0x7f060025;
+        public static final int title_activity_main=0x7f060026;
+        public static final int title_activity_settings=0x7f060027;
     }
     public static final class style {
         public static final int AlertDialog_AppCompat=0x7f080074;

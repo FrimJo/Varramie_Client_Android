@@ -1,21 +1,23 @@
 package com.spots.varramie;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-
 import android.content.Context;
-import android.net.wifi.WifiManager;
-import android.support.v7.app.ActionBarActivity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.wifi.WifiManager;
+import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
+import android.support.v7.app.ActionBarActivity;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 /*import com.google.android.vending.licensing.LicenseChecker;
 import com.google.android.vending.licensing.LicenseCheckerCallback;
 import com.google.android.vending.licensing.ServerManagedPolicy;
@@ -27,6 +29,7 @@ public class MainActivity extends ActionBarActivity{
 	//private final int PREFERENCE_MODE_PRIVATE = 0;
     private static WifiManager.MulticastLock multicastLock;
 	private Intent startService;
+	private GLSurfaceView mGLView;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -35,8 +38,11 @@ public class MainActivity extends ActionBarActivity{
 		WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
 		multicastLock = wifi.createMulticastLock("multicastLock");
 
-		SpotSurfaceView surface = new SpotSurfaceView(this);
-		setContentView(surface);
+		//SpotSurfaceView surface = new SpotSurfaceView(this);
+
+		mGLView = new OpenGLSurfaceView(this);
+		setContentView(mGLView);
+
 		Client.INSTANCE.init(new IGUI() {
 
 			private final Vibrator vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
@@ -44,14 +50,11 @@ public class MainActivity extends ActionBarActivity{
 			@Override
 			public void print(String str) {
 				Log.d("MESSAGE", str);
-				System.out.print(str);
-
 			}
 
 			@Override
 			public void println(String str) {
 				Log.d("MESSAGE", str);
-
 			}
 
 			@Override
@@ -86,7 +89,6 @@ public class MainActivity extends ActionBarActivity{
 
 		switch (item.getItemId()) {
 		case R.id.action_settings:
-			//startActivityForResult(new Intent(this, EmptyActivity.class), RESULT_OK);
 			startActivityForResult(new Intent(this, EmptyActivity.class), RESULT_OK);
 			return true;
 		case R.id.action_exit:
@@ -133,6 +135,7 @@ public class MainActivity extends ActionBarActivity{
 		this.startService = new Intent(getBaseContext(), UDP.class);
 		byte[] byteAddress = new byte[0];
 		try {
+			//byteAddress = InetAddress.getByName("194.165.237.13").getAddress();
 			byteAddress = InetAddress.getByName("194.165.237.13").getAddress();
 			this.startService.putExtra("SERVER_IP_BYTE", byteAddress);
 			this.startService.putExtra("SERVER_PORT_INT", 8001);

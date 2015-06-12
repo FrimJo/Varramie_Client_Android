@@ -1,13 +1,8 @@
 package com.spots.varramie;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 
 import android.graphics.Point;
-import android.net.ParseException;
-import android.util.Log;
 import android.view.MotionEvent;
+import java.io.IOException;
 
 
 /**
@@ -21,7 +16,7 @@ public enum Client {
 	INSTANCE;
 
 	private IGUI					gui;
-	private final TouchState		touchState = new TouchState(MotionEvent.ACTION_UP, 0, 0);
+	private final TouchState		touchState = new TouchState(OpCodes.ACTION_UP, (short) 0, (short) 0);
 	
 	/**
 	 * The constructor for class Client. Being a singleton implies that
@@ -41,22 +36,23 @@ public enum Client {
 		println("Initiating the client . . .");
 	}
 
-	public void sendTouchAction(final int x, final int y, int action) throws IOException {
+	public void sendTouchAction(final float x, final float y, byte action) {
 		synchronized (this.touchState){
 			this.touchState.setState(x, y, action);
 		}
 
+		// Set my spot status
 		switch (action) {
-			case MotionEvent.ACTION_DOWN:
-				Spot.activateMySpot(new Point(x, y));
+			case OpCodes.ACTION_DOWN:
+				Spot.activateMySpot(x, y);
 				//connectedServer.interruptSenderThread();
 				break;
-			case MotionEvent.ACTION_MOVE:
-				Spot.updateMySpot(new Point(x,y));
+			case OpCodes.ACTION_MOVE:
+				Spot.updateMySpot(x, y);
 
 				break;
-			case MotionEvent.ACTION_UP:
-				Spot.deactivateMySpot(new Point(x,y));
+			case OpCodes.ACTION_UP:
+				Spot.deactivateMySpot(x, y);
 				break;
 
 			default:
@@ -64,30 +60,33 @@ public enum Client {
 		}
 	}
 
-	public void receiveTouch(int x, int y, int id, int action){
-		Spot spot = Spot.getSpot(id);
-		if(spot == null){
-			spot = new Spot(id);
-		}
+	public void receiveTouch(float x, float y, int id, int action){
+		Spot s = Spot.getSpotAt(id);
+
+		if(s == null)
+			return;
 
 		switch (action) {
-			case MotionEvent.ACTION_DOWN:
-				spot.activate(new Point(x,y));
+			case OpCodes.ACTION_DOWN:
+				s.activate(x, y);
 				break;
-			case MotionEvent.ACTION_MOVE:
-				spot.update(new Point(x,y));
+			case OpCodes.ACTION_MOVE:
+				s.update(x, y);
 				break;
-			case MotionEvent.ACTION_UP:
-				spot.deactivate(new Point(x,y));
+			case OpCodes.ACTION_UP:
+				s.deactivate(x ,y);
 				break;
 
 			default:
 				break;
 		}
 
-		if(Spot.isMySpotActive()){
-			Point p = Spot.getMySpotPoint();
-			if( (p.x > x-20 && p.x < x+20) && (p.y > y-20 && p.y < y+20 ) ){
+		Spot mySpot = Spot.getMySpot();
+		if(mySpot.isActive()){
+
+			float my_x = mySpot._dx;
+			float my_y = mySpot._dy;
+			if( (my_x > x-160.0f && my_x < x+160.0f) && (my_y > y-160.0f && my_y < y+160.0f ) ){
 				this.gui.onColide();
 				println("Touch!");	
 			}

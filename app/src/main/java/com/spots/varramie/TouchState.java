@@ -1,16 +1,14 @@
 package com.spots.varramie;
 
-import android.view.MotionEvent;
-
 /**
  * Created by fredrikjohansson on 15-06-08.
  */
 public class TouchState {
-    private int _state;
-    private int _x;
-    private int _y;
+    private byte _state;
+    private float _x;
+    private float _y;
 
-    public TouchState(int startState, int x, int y){
+    public TouchState(final byte startState, final float x, final float y){
         _state = startState;
         _x = x;
         _y = y;
@@ -22,24 +20,38 @@ public class TouchState {
         _y = touchState.getY();
     }
 
-    public int getState(){
+    public byte getState(){
         return _state;
     }
-    public void setState(int state){
-        _state = state;
-    }
-    public void setState(int x, int y, int state){
+
+    public void setState(final float x, final float y, final byte state){
         _state = state;
         _x = x;
         _y = y;
     }
 
-    public int getX(){
+    public float getX(){
         return _x;
     }
 
-    public int getY(){
+    public float getY(){
         return _y;
+    }
+
+    @Override
+    public boolean equals(Object o){
+        if(o == null)
+            return false;
+
+        if(o.getClass() != this.getClass())
+            return false;
+
+        TouchState ts = (TouchState) o;
+
+        if(ts._x != _x || ts._y != _y || ts._state != _state)
+            return false;
+
+        return true;
     }
 
     public static TouchState cloneState(TouchState touchState){

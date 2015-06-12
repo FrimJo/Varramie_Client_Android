@@ -1,28 +1,23 @@
 package com.spots.varramie;
 
-import java.io.IOException;
-
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.graphics.Point;
 import android.os.Handler;
-import android.os.SystemClock;
-import android.preference.PreferenceManager;
-import android.provider.Settings.System;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+
+import java.io.IOException;
 
 public class SpotSurfaceView extends SurfaceView implements SurfaceHolder.Callback{
 	private SurfaceHolder sh;
 	private final Paint paintCircle = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint paintText = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private SpotThread thread;
-	private Context ctx;
 	
 	
 	public SpotSurfaceView(Context context) {
@@ -33,7 +28,6 @@ public class SpotSurfaceView extends SurfaceView implements SurfaceHolder.Callba
 		paintCircle.setStrokeWidth(2);
 		paintText.setColor(Color.WHITE);
 		paintText.setTextSize(24.0f);
-		ctx = context;
 		
 	    setFocusable(true); // make sure we get key events
 	}
@@ -75,21 +69,28 @@ public class SpotSurfaceView extends SurfaceView implements SurfaceHolder.Callba
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		
-		int action = event.getAction();
-		
-		int x = Math.round(event.getX());
-		int y = Math.round(event.getY());
-		
-		if (action == MotionEvent.ACTION_UP)
-			this.performClick();
-			
-		
-		
-		try{
-			Client.INSTANCE.sendTouchAction(x, y, action);
-		}catch(IOException e){
-			Client.INSTANCE.println("IOException in SpotSurfaceView");
+		byte action;
+		switch (event.getAction()){
+			case MotionEvent.ACTION_DOWN:
+				action = OpCodes.ACTION_DOWN;
+				break;
+			case MotionEvent.ACTION_UP:
+				action = OpCodes.ACTION_UP;
+				this.performClick();
+				break;
+			case MotionEvent.ACTION_MOVE:
+				action = OpCodes.ACTION_MOVE;
+				break;
+			default:
+				action = OpCodes.ACTION_UP;
+				break;
 		}
+		
+		short x = (short) event.getX();
+		short y = (short) event.getY();
+
+		Client.INSTANCE.sendTouchAction(x, y, action);
+
 
 		return true;
 	}
@@ -106,19 +107,15 @@ public class SpotSurfaceView extends SurfaceView implements SurfaceHolder.Callba
 		  
 		  public void run() {
 		    while (run) {
-		      Canvas c = null;
-		      try {
-		        c = sh.lockCanvas(null);
-		        synchronized (sh) {
-		          doDraw(c);
-		        }
-		      }catch(NullPointerException e){
-		    	  // Catch the exception and do nothing. Temporary solution.
-		      } finally {
-		        if (c != null) {
-		          sh.unlockCanvasAndPost(c);
-		        }
-		      }
+		      Canvas c = sh.lockCanvas(null);
+				synchronized (sh) {
+				  doDraw(c);
+				}
+
+				if (c != null) {
+				  sh.unlockCanvasAndPost(c);
+				}
+
 		    }
 		  }
 		    
@@ -136,22 +133,33 @@ public class SpotSurfaceView extends SurfaceView implements SurfaceHolder.Callba
 			canvas.save();
 			canvas.drawColor(Color.WHITE);
 			
-			for(int i = 0; i < Spot.sizeOfSpotsList(); i++){
+			/*for(int i = 0; i < Spot.sizeOfSpotsList(); i++){
 				Spot s = Spot.getSpotAt(i);
 				if(s.isActive()){
-					Point p = s.getPoint();
-					//for(int counter = 0; p != null; counter++){
-						paintCircle.setColor(s.getDynamicColor(0/*counter*/));
-						canvas.drawCircle(p.x, p.y, 30, paintCircle);	
-					//	p = s.getPoint();
-					//}
+					int counter = 0;
+					for(Point p : s){
+						float d = (counter/9.0f);
+						paintCircle.setColor(s.getDynamicColor( (int) (255/(1.0f+d*2)) ));
+						canvas.drawCircle(p.x, p.y, 50.0f/(1.0f+d), paintCircle);
+						counter++;
+					}
+
 				}
-			}
-			if(Spot.isMySpotActive()){
-				Point p = Spot.getMySpotPoint();
+			}*/
+
+			Spot mySpot = Spot.getMyspot();
+			if(mySpot.isActive()){
+				int counter = 0;
+				for(Point p : mySpot){
+					float d = (counter/9.0f);
+					paintCircle.setColor(mySpot.getDynamicColor( (int) (255/(1.0f+d*2)) ));
+					canvas.drawCircle(p.x, p.y, 50.0f/(1.0f+d), paintCircle);
+					counter++;
+				}
+				//Point p = Spot.getMySpotPoint();
 				//for(int counter = 0; p != null; counter++){
-					paintCircle.setColor(Spot.getMySpotDynamicColor(0/*counter*/));
-					canvas.drawCircle(p.x, p.y, 30, paintCircle);	
+					//paintCircle.setColor(Spot.getMySpotDynamicColor(0/*counter*/));
+					//canvas.drawCircle(p.x, p.y, 30, paintCircle);
 				//	p = Spot.getMySpotPoint();
 				//}
 			}
