@@ -10,13 +10,14 @@ public class PDU_Factory {
 	// Short = 2 byte
 	// unsigned 1 byte = 0 -> 255
 	// signed 1 byte = -128 -> 127
-	public static byte[] touch_action(final float x, final float y, final byte action, final int id){
-		ByteBuffer bb = ByteBuffer.allocate(11);
+	public static byte[] touch_action(final float x, final float y, final float pressure, final byte action, final int id){
+		ByteBuffer bb = ByteBuffer.allocate(15);
 		bb.put(0, action);
 		bb.put(1, (byte) '\0');
 		bb.put(2, (byte) id);
 		bb.putFloat(3, x);
 		bb.putFloat(7, y);
+		bb.putFloat(11, pressure);
 		byte[] bytes = bb.array();
 		bb.put(1, Checksum.calc(bytes, bytes.length));
 		return bytes;

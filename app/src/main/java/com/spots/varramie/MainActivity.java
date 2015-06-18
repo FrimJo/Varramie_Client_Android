@@ -15,6 +15,8 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.spots.liquidfun.Renderer;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -26,49 +28,25 @@ import com.google.android.vending.licensing.AESObfuscator;*/
 @SuppressWarnings("deprecation")
 public class MainActivity extends ActionBarActivity{
 
-	//private final int PREFERENCE_MODE_PRIVATE = 0;
-    private static WifiManager.MulticastLock multicastLock;
-	private Intent startService;
 	private GLSurfaceView mGLView;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-		multicastLock = wifi.createMulticastLock("multicastLock");
+		GLSurfaceView view = new GLSurfaceView(this);
 
-		//SpotSurfaceView surface = new SpotSurfaceView(this);
+		view.setEGLContextClientVersion(2);
 
+		Renderer renderer = new Renderer();
+		view.setRenderer(renderer);
+
+		setContentView(view);
+
+		/*
 		mGLView = new OpenGLSurfaceView(this);
-		setContentView(mGLView);
+		setContentView(mGLView);*/
 
-		Client.INSTANCE.init(new IGUI() {
-
-			private final Vibrator vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-
-			@Override
-			public void print(String str) {
-				Log.d("MESSAGE", str);
-			}
-
-			@Override
-			public void println(String str) {
-				Log.d("MESSAGE", str);
-			}
-
-			@Override
-			public String getInput() {
-				return "";
-			}
-
-			@Override
-			public void onColide() {
-				this.vibrator.vibrate(300);
-			}
-		});
-
-		StartServices();
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		Spot.setDefaultHidden(pref.getBoolean("hide_others", false));
 	}
@@ -92,7 +70,7 @@ public class MainActivity extends ActionBarActivity{
 			startActivityForResult(new Intent(this, EmptyActivity.class), RESULT_OK);
 			return true;
 		case R.id.action_exit:
-			stopService(this.startService);
+			stopService(new Intent(".UDP"));
 			finish();
 			return true;
 		default:
@@ -115,35 +93,5 @@ public class MainActivity extends ActionBarActivity{
 	
 	public SharedPreferences getPreferences(){
 		return PreferenceManager.getDefaultSharedPreferences(this);
-	}
-
-	public static void unlockMulticast(){
-		multicastLock.setReferenceCounted(true);
-		multicastLock.acquire();
-	}
-
-	public static void lockMulticast(){
-		if (multicastLock != null) {
-			multicastLock.release();
-			multicastLock = null;
-		}
-	}
-
-	private void StartServices()
-	{
-		// Start UDPService
-		this.startService = new Intent(getBaseContext(), UDP.class);
-		byte[] byteAddress = new byte[0];
-		try {
-			//byteAddress = InetAddress.getByName("194.165.237.13").getAddress();
-			byteAddress = InetAddress.getByName("194.165.237.13").getAddress();
-			this.startService.putExtra("SERVER_IP_BYTE", byteAddress);
-			this.startService.putExtra("SERVER_PORT_INT", 8001);
-			this.startService(this.startService);
-		} catch (UnknownHostException e) {
-			Toast.makeText(getBaseContext(), "Could not start network service, pleae restart the app.", Toast.LENGTH_SHORT).show();
-		}
-
-
 	}
 }

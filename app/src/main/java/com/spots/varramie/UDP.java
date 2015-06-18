@@ -1,23 +1,24 @@
 package com.spots.varramie;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
-import android.os.AsyncTask;
+import android.net.wifi.WifiManager;
 import android.os.IBinder;
-import android.view.MotionEvent;
+import android.os.IInterface;
+import android.os.Parcel;
+import android.os.RemoteException;
+import android.support.v4.content.LocalBroadcastManager;
 import android.widget.Toast;
 
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
-import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
-import java.util.Queue;
 
 /**
  * A basic class for handeling UDP connections.
@@ -45,6 +46,8 @@ public class UDP extends Service {
 	private JoinThread				joinThread = new JoinThread();
 	private ReceiveThread			receiveThread = new ReceiveThread();
 
+	//private WifiManager.MulticastLock multicastLock;
+
 
 	public UDP(){
 		super();
@@ -60,7 +63,11 @@ public class UDP extends Service {
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId)
 	{
-		MainActivity.unlockMulticast();
+		/*WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		multicastLock = wifi.createMulticastLock("multicastLock");
+		multicastLock.setReferenceCounted(true);
+		multicastLock.acquire();*/
+
 
 		try {
 			byte[] byteAddress = intent.getByteArrayExtra("SERVER_IP_BYTE");
@@ -86,9 +93,15 @@ public class UDP extends Service {
 	}
 
 	@Override
+	public boolean stopService(Intent name){
+		disconnect();
+		return super.stopService(name);
+	}
+
+	@Override
 	public void onDestroy()
 	{
-		disconnect();
+		stopSelf();
 		super.onDestroy();
 	}
 
@@ -97,14 +110,10 @@ public class UDP extends Service {
 		int client_id = bb.get(2) & 0xff;
 		float client_touchX = bb.getFloat(3);
 		float client_touchY = bb.getFloat(7);
+		float pressure = bb.getFloat(11);
 
-		try{
-			byte action = bb.get(0);
-			Client.INSTANCE.receiveTouch(client_touchX, client_touchY, client_id, action);
-
-		}catch(Exception e){
-			e.printStackTrace();
-		}
+		byte action = bb.get(0);
+		Client.INSTANCE.receiveTouch(client_touchX, client_touchY, pressure,client_id, action);
 	}
 
 	private class ReceiveThread extends Thread {
@@ -134,13 +143,12 @@ public class UDP extends Service {
 								throw new ChecksumException("Wrong checksum received in JOIN");
 							int id = bb.get(2) & 0xff;
 							hasJoined = true;
-							Spot.setMySpotId(id);
+							Spot.SpotManager.setMySpotId(id);
 							break;
 						case OpCodes.NOTREG:
 							bb = ByteBuffer.wrap( new byte[]{bytes[0], bytes[1]}, 0, 2);
 							if(!Checksum.isCorrect(bb.array()))
 								throw new ChecksumException("Wrong checksum received in NOTREG");
-							Client.INSTANCE.println("Need to establish a connection first.");
 							if (!joinThread.isAlive()) {
 								aliveThread.interrupt();
 								try {
@@ -158,23 +166,21 @@ public class UDP extends Service {
 								joinThread = new JoinThread();
 								joinThread.start();
 
-								Client.INSTANCE.println("Restarting the join process . . .");
 							}
 							break;
 						case OpCodes.QUIT:
 							bb = ByteBuffer.wrap( new byte[]{bytes[0], bytes[1], bytes[2] }, 0, 3);
 							if(!Checksum.isCorrect(bb.array()))
 								throw new ChecksumException("Wrong checksum received in QUIT");
-							Client.INSTANCE.println("You have been disconnected");
+
 							joinThread.start();
 							// Restart the join process
-							Client.INSTANCE.println("Restarting the join process . . .");
 							break;
 						case OpCodes.ALIVE:
 							break;
 						default:
-							bb = ByteBuffer.wrap(new byte[]{ 	bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
-																bytes[6], bytes[7], bytes[8], bytes[9], bytes[10] }, 0, 11);
+							bb = ByteBuffer.wrap(new byte[]{ bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
+									bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14] }, 0, 15);
 							if(!Checksum.isCorrect(bb.array()))
 								throw new ChecksumException("Wrong checksum received in DEFAULT");
 							receive(bb);
@@ -188,7 +194,10 @@ public class UDP extends Service {
 					e.printStackTrace();
 				}
 			}
-			MainActivity.lockMulticast();
+			/*if (multicastLock != null) {
+				multicastLock.release();
+				multicastLock = null;
+			}*/
 		}
 	}
 
@@ -200,7 +209,16 @@ public class UDP extends Service {
 
 		@Override
 		public void run(){
-			byte[] bytes = PDU_Factory.alive(Spot.getMySpotId());
+			try {
+				while(Spot.SpotManager.getMySpot() == null){
+					sleep(1000);
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+			Spot mySpot = Spot.SpotManager.getMySpot();
+			byte[] bytes = PDU_Factory.alive(mySpot.getId());
 			DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
 			while(!stop){
 				try {
@@ -215,6 +233,7 @@ public class UDP extends Service {
 		}
 	}
 
+
 	private class JoinThread extends Thread{
 
 		public JoinThread(){
@@ -225,7 +244,6 @@ public class UDP extends Service {
 		public void run(){
 			receiveStop = false;
 			stopSender = false;
-			Client.INSTANCE.println("Trying to establish a connection with server.");
 			hasJoined = false;
 			byte[] bytes = PDU_Factory.join();
 			//byte checksum = bytes[1];
@@ -235,9 +253,8 @@ public class UDP extends Service {
 				while(!hasJoined){
 					multiSocket.send(dp);
 					sleep(1000);
-					Client.INSTANCE.println("Resend JOIN package . . .");
 				}
-				Client.INSTANCE.println("Connection established.");
+				sendMessage(OpCodes.JOIN);
 				aliveThread.start();	// Continually send alive messages to server
 				senderThread.start();	// Start to send status to server
 			} catch (InterruptedException e) {
@@ -248,83 +265,60 @@ public class UDP extends Service {
 				Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
 			}
 		}
+
+		// Send an Intent with an action named "my-event".
+		private void sendMessage(byte action) {
+			Intent intent = new Intent("my-event");
+			// add data
+			intent.putExtra("action", action);
+			LocalBroadcastManager.getInstance(getBaseContext()).sendBroadcast(intent);
+		}
 	}
 
 	private class Sender extends Thread{
 
 		public Sender(){
 			super("Sender Thread");
-
-
 		}
-
 
 		@Override
 		public void run(){
-			TouchState prevTouchState = new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f);
-			Client.INSTANCE.println("Sending thread started.");
-			long time = 10;
-			while(!stopSender){
-				TouchState touchState = Client.INSTANCE.getTouchState();
-				if(!touchState.equals(prevTouchState)){
-					prevTouchState = touchState;
-					byte action = touchState.getState();
-					switch (action) {
-						case OpCodes.ACTION_DOWN:
-							time = 10;
-							break;
-						case OpCodes.ACTION_MOVE:
-							time = 10;
-							break;
-						case OpCodes.ACTION_UP:
-							time = 1000;
-							break;
-						default:
-							time = 10;
-							break;
-					}
-
-
-					byte[] bytes = PDU_Factory.touch_action(touchState.getX(), touchState.getY(), action, Spot.getMySpotId());
-					DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
-					try {
-						multiSocket.send(dp);
-					} catch (SocketException e) {
-						break;
-					} catch (IOException e) {
-						Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
-					}
-				}
-				try {
-					Thread.sleep(time);
-				} catch (InterruptedException e) {
-				}
-
-			}
-			Client.INSTANCE.println("Sending thread stoped.");
-			byte[] quitBytes = PDU_Factory.quit(Spot.getMySpotId());
-			DatagramPacket dp = new DatagramPacket(quitBytes, quitBytes.length, server_address, server_port);
-
+			TouchState prevTouchState = new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.32f);
 			try {
-				for(int i = 0; i < 10; i++){
-					multiSocket.send(dp);
+				while(!stopSender){
+					TouchState touchState = Client.INSTANCE.takeTouchState();
+					if(!touchState.equals(prevTouchState)){
+						prevTouchState = touchState;
+						byte action = touchState.getState();
+						byte[] bytes = PDU_Factory.touch_action(touchState.getX(), touchState.getY(), touchState.getPressure(), action, Spot.SpotManager.getMySpotId());
+						DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
+						try {
+							multiSocket.send(dp);
+						} catch (SocketException e) {
+
+						} catch (IOException e) {
+							Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
+						}
+					}
 				}
+				byte[] quitBytes = PDU_Factory.quit(Spot.SpotManager.getMySpotId());
+				DatagramPacket dp = new DatagramPacket(quitBytes, quitBytes.length, server_address, server_port);
+
+
+				multiSocket.send(dp);
 			} catch (IOException e) {
 				// Catches the exception but does nothing.
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
 		}
 
-	}
-
-	protected void interruptSenderThread(){
-		this.senderThread.interrupt();
 	}
 
 	/**
 	 * Makes the run thread of UDP to end and close the sockets.
 	 */
 	public void disconnect(){
-		Client.INSTANCE.println("Shuttding down . . .");
 		this.stop = true;
 		this.stopSender = true;
 		this.receiveStop = true;
@@ -338,7 +332,6 @@ public class UDP extends Service {
 		}
 		this.multiSocket.close();
 
-		Client.INSTANCE.println("Connection closed");
 	}
 
 	private class ChecksumException extends Exception {

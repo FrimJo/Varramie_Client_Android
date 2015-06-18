@@ -7,6 +7,7 @@
     <string name="action_exit">Exit</string>
     <string name="title_activity_empty">EmptyActivity</string>
     <string name="title_activity_main">MainActivity</string>
+    <string name="title_activity_liquid">LiquidActivity</string>
     
 
 </resources>

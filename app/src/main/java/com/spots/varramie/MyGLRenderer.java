@@ -7,6 +7,9 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.opengl.Matrix;
+import android.util.Log;
+
+import java.nio.FloatBuffer;
 
 import javax.microedition.khronos.opengles.GL10;
 
@@ -15,8 +18,6 @@ import javax.microedition.khronos.opengles.GL10;
  */
 public class MyGLRenderer implements GLSurfaceView.Renderer {
 
-    private Spot mySpot;
-    private Spot testSpot;
 
     // mMVPMatrix is an abbreviation for "Model View Projection Matrix"
     private final float[] mMVPMatrix = new float[16];
@@ -26,34 +27,28 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
 
         // Set the background frame color
         GLES20.glClearColor(255.0f, 255.0f, 255.0f, 1.0f);
-        for(int i = 0; i < 256; i++){
-            new Spot(i);
-        }
-        mySpot = new Spot();
-        Spot.setMySpot(mySpot);
+
+        // Disable dithering for better performance
+        gl.glDisable(GL10.GL_DITHER);
+        Spot.SpotManager.init();
+
     }
 
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
+        float width_ratio = ((float) width) / ((float) height);
         GLES20.glViewport(0, 0, width, height);
-        Matrix.orthoM(mMVPMatrix, 0, 0, width, height, 0, -1, 1);
+        Matrix.orthoM(mMVPMatrix, 0, 0, width_ratio, 1.0f, 0, -1, 1);
+
+        /*GLES20.glViewport(0, 0, width, height);
+        Matrix.orthoM(mMVPMatrix, 0, 0, width, height, 0, -1, 1);*/
     }
 
     @Override
     public void onDrawFrame(GL10 gl) {
-
         // Redraw background color
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-
-        for(int i = 0; i < Spot.sizeOfSpotsList(); i++){
-            Spot s = Spot.getSpotAt(i);
-            if(s.isActive())
-                s.draw(mMVPMatrix);
-        }
-
-        if(mySpot != null && mySpot.isActive())
-            mySpot.draw(mMVPMatrix);
-
+        Spot.SpotManager.drawAllSpots(mMVPMatrix);
     }
 
     public static int loadShader(int type, String shaderCode){
@@ -68,4 +63,5 @@ public class MyGLRenderer implements GLSurfaceView.Renderer {
 
         return shader;
     }
+
 }

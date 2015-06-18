@@ -3,6 +3,7 @@ package com.spots.varramie;
 import android.graphics.Point;
 import android.view.MotionEvent;
 import java.io.IOException;
+import java.util.concurrent.LinkedBlockingDeque;
 
 
 /**
@@ -16,7 +17,8 @@ public enum Client {
 	INSTANCE;
 
 	private IGUI					gui;
-	private final TouchState		touchState = new TouchState(OpCodes.ACTION_UP, (short) 0, (short) 0);
+	private final LinkedBlockingDeque<TouchState> touchStates = new LinkedBlockingDeque<>();
+	//private final TouchState		touchState = new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.35f);
 	
 	/**
 	 * The constructor for class Client. Being a singleton implies that
@@ -25,83 +27,82 @@ public enum Client {
 	 * init method and used through Client.INSTANCE.[method].
 	 */
 	Client(){ }
-	
-	/**
-	 * This is the initialize method, it uses a GUI and
-	 * setup the connection towards the name server (DNS).
-	 * @param gui The GUI to be used with the client, needs to implement GUI_Interface_Client.java.
-	 */
+
+
 	public void init(final IGUI gui){
 		this.gui = gui;
+		//touchStates.add(new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.32f));
 		println("Initiating the client . . .");
 	}
 
-	public void sendTouchAction(final float x, final float y, byte action) {
-		synchronized (this.touchState){
-			this.touchState.setState(x, y, action);
-		}
+	public void sendTouchAction(final float x, final float y, final byte action, final float pressure) {
+
 
 		// Set my spot status
 		switch (action) {
 			case OpCodes.ACTION_DOWN:
-				Spot.activateMySpot(x, y);
+				Spot.SpotManager.activateMySpot(x, y, pressure);
 				//connectedServer.interruptSenderThread();
 				break;
 			case OpCodes.ACTION_MOVE:
-				Spot.updateMySpot(x, y);
+				Spot.SpotManager.updateMySpot(x, y, pressure);
 
 				break;
 			case OpCodes.ACTION_UP:
-				Spot.deactivateMySpot(x, y);
+				Spot.SpotManager.deactivateMySpot(x, y, pressure);
 				break;
 
 			default:
 				break;
 		}
+
+		TouchState t = new TouchState(action, x, y, pressure);
+		touchStates.add(t);
 	}
 
-	public void receiveTouch(float x, float y, int id, int action){
-		Spot s = Spot.getSpotAt(id);
+	public void receiveTouch(float x, float y, float pressure, int id, byte action){
+		Spot s = Spot.SpotManager.getSpot(id);
 
 		if(s == null)
+			return;
+		Spot mySpot = Spot.SpotManager.getMySpot();
+		if(id == mySpot.getId())
 			return;
 
 		switch (action) {
 			case OpCodes.ACTION_DOWN:
-				s.activate(x, y);
+				s.activate(x, y, pressure);
 				break;
 			case OpCodes.ACTION_MOVE:
-				s.update(x, y);
+				s.update(x, y, pressure);
 				break;
 			case OpCodes.ACTION_UP:
-				s.deactivate(x ,y);
+				s.deactivate(x, y, pressure);
 				break;
 
 			default:
 				break;
 		}
 
-		Spot mySpot = Spot.getMySpot();
 		if(mySpot.isActive()){
+			TouchState t = mySpot.getState();
+			float my_x = t.getX();
+			float my_y = t.getY();
+			float my_pressure = t.getPressure();
 
-			float my_x = mySpot._dx;
-			float my_y = mySpot._dy;
-			if( (my_x > x-160.0f && my_x < x+160.0f) && (my_y > y-160.0f && my_y < y+160.0f ) ){
+			float dx = my_x - x;
+			float dy = my_y - y;
+			double s_pow = Math.pow(dx,2.0) + Math.pow(dy,2.0);
+
+			if(s_pow <= Math.pow((my_pressure + pressure)*0.05f, 2.0)){
 				this.gui.onColide();
 				println("Touch!");	
 			}
 		}
 	}
 
-	/**
-	 * Signals the client to shut down and disconnect from all servers.
-	 * @throws IOException Signals that an I/O exception of some sort has occurred. This class is the general class of exceptions produced by failed or interrupted I/O operations.
-	 */
 	public void shutDown() throws IOException{
-		for(int i = 0; i < Spot.sizeOfSpotsList(); i++){
-	    	Spot s = Spot.getSpotAt(i);
-	    	s.destroy();
-	    }
+
 	}
 
 	/**
@@ -112,12 +113,15 @@ public enum Client {
 	 * @param str The string to print.
 	 */
 	public synchronized void println(final String str){
-		this.gui.println(str);
+		if(this.gui != null)
+			this.gui.println(str);
 	}
 
-	public TouchState getTouchState(){
-		synchronized (this.touchState){
-			return TouchState.cloneState(this.touchState);
-		}
+	public TouchState takeTouchState() throws InterruptedException {
+		return touchStates.take();
+	}
+
+	public void addTouchState(final TouchState t){
+		touchStates.add(t);
 	}
 }

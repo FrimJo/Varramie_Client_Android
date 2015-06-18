@@ -1,6 +1,7 @@
 package com.spots.varramie;
 public class OpCodes {
 
+		public static final byte DEFAULT = 0;
 		public static final byte NOTREG = 100;
 		public static final byte ALIVE = 9;
 		public static final byte MESSAGE = 10;

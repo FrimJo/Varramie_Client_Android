@@ -33,7 +33,7 @@ public class EmptyActivity extends PreferenceActivity implements SharedPreferenc
 	public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
 		switch (key) {
 		case "hide_others":
-			Spot.setIsHidden(sharedPreferences.getBoolean(key, false));
+			Spot.SpotManager.setIsHidden(sharedPreferences.getBoolean(key, false));
 
 		default:
 			break;

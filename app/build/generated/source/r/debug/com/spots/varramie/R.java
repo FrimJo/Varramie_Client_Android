@@ -1529,11 +1529,12 @@ containing a value of this type.
         public static final int abc_textfield_search_activated_mtrl_alpha=0x7f020038;
         public static final int abc_textfield_search_default_mtrl_alpha=0x7f020039;
         public static final int abc_textfield_search_material=0x7f02003a;
-        public static final int ic_launcher=0x7f02003b;
-        public static final int notification_template_icon_bg=0x7f02003f;
-        public static final int varramie_launcher_icon=0x7f02003c;
-        public static final int varramie_launcher_icon_trans=0x7f02003d;
-        public static final int varramie_launcher_incon_white=0x7f02003e;
+        public static final int bubble_scape_splash_2=0x7f02003b;
+        public static final int ic_launcher=0x7f02003c;
+        public static final int notification_template_icon_bg=0x7f020040;
+        public static final int varramie_launcher_icon=0x7f02003d;
+        public static final int varramie_launcher_icon_trans=0x7f02003e;
+        public static final int varramie_launcher_incon_white=0x7f02003f;
     }
     public static final class id {
         public static final int action0=0x7f0d004f;
@@ -1546,13 +1547,13 @@ containing a value of this type.
         public static final int action_bar_title=0x7f0d0023;
         public static final int action_context_bar=0x7f0d0041;
         public static final int action_divider=0x7f0d0053;
-        public static final int action_exit=0x7f0d005d;
+        public static final int action_exit=0x7f0d005f;
         public static final int action_menu_divider=0x7f0d0002;
         public static final int action_menu_presenter=0x7f0d0003;
         public static final int action_mode_bar=0x7f0d003d;
         public static final int action_mode_bar_stub=0x7f0d003c;
         public static final int action_mode_close_button=0x7f0d0025;
-        public static final int action_settings=0x7f0d005c;
+        public static final int action_settings=0x7f0d005e;
         public static final int activity_chooser_view_content=0x7f0d0026;
         public static final int alertTitle=0x7f0d0030;
         public static final int always=0x7f0d0016;
@@ -1580,6 +1581,7 @@ containing a value of this type.
         public static final int icon=0x7f0d002b;
         public static final int ifRoom=0x7f0d0018;
         public static final int image=0x7f0d0028;
+        public static final int imgLogo=0x7f0d005c;
         public static final int info=0x7f0d005a;
         public static final int line1=0x7f0d0054;
         public static final int line3=0x7f0d0058;
@@ -1612,6 +1614,7 @@ containing a value of this type.
         public static final int showCustom=0x7f0d000f;
         public static final int showHome=0x7f0d0010;
         public static final int showTitle=0x7f0d0011;
+        public static final int splashText=0x7f0d005d;
         public static final int split_action_bar=0x7f0d0007;
         public static final int src_atop=0x7f0d0020;
         public static final int src_in=0x7f0d0021;
@@ -1676,7 +1679,8 @@ containing a value of this type.
         public static final int select_dialog_item_material=0x7f030022;
         public static final int select_dialog_multichoice_material=0x7f030023;
         public static final int select_dialog_singlechoice_material=0x7f030024;
-        public static final int support_simple_spinner_dropdown_item=0x7f030025;
+        public static final int splash=0x7f030025;
+        public static final int support_simple_spinner_dropdown_item=0x7f030026;
     }
     public static final class menu {
         public static final int main=0x7f0e0000;
@@ -1720,8 +1724,9 @@ containing a value of this type.
         public static final int status_bar_notification_info_overflow=0x7f060023;
         public static final int test_activity_string=0x7f060024;
         public static final int title_activity_empty=0x7f060025;
-        public static final int title_activity_main=0x7f060026;
-        public static final int title_activity_settings=0x7f060027;
+        public static final int title_activity_liquid=0x7f060026;
+        public static final int title_activity_main=0x7f060027;
+        public static final int title_activity_settings=0x7f060028;
     }
     public static final class style {
         public static final int AlertDialog_AppCompat=0x7f080074;

@@ -26,8 +26,20 @@ public class CircleArray<T> implements Iterable<T>{
             _pointer %= _size;
     }
 
+    public synchronized T get(){
+        T object = _array[_pointer];
+        _pointer++;
+        if(_pointer == _size)
+            _pointer %= _size;
+        return object;
+    }
+
     public synchronized T first(){
         return _array[_pointer];
+    }
+
+    public synchronized int size(){
+        return _size;
     }
 
     private int mod(int val){
