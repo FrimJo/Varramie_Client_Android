@@ -120,7 +120,7 @@ public class Renderer implements GLSurfaceView.Renderer {
         Matrix.orthoM(projection, 0, 0, width, 0, height, -10, 10);
         GLES20.glUniformMatrix4fv(projectionHandle, 1, false, projection, 0);
 
-        //ParticleSystemDef test = new ParticleSystemDef();
+        ParticleSystemDef test = new ParticleSystemDef();
 
 
         screenW = width;
