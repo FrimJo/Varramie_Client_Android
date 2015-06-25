@@ -255,6 +255,7 @@
     <!-- From: file:/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/src/main/res/values/strings.xml -->
     <eat-comment/>
     <string name="title_activity_empty">EmptyActivity</string>
+    <string name="title_activity_liquid">LiquidActivity</string>
     <string name="title_activity_main">MainActivity</string>
     <!-- From: file:/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/src/main/res/values/strings_activity_settings.xml -->
     <eat-comment/>

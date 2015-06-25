@@ -3,7 +3,9 @@ package com.spots.liquidfun;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 
-import com.spots.varramie.Client;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 
 import org.jbox2d.collision.shapes.PolygonShape;
 import org.jbox2d.common.Vec2;
@@ -11,20 +13,19 @@ import org.jbox2d.dynamics.Body;
 import org.jbox2d.dynamics.BodyDef;
 import org.jbox2d.dynamics.BodyType;
 import org.jbox2d.dynamics.FixtureDef;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
+import org.jbox2d.particle.ParticleGroup;
+import org.jbox2d.particle.ParticleSystem;
 
 import javax.microedition.khronos.opengles.GL10;
 
-public abstract class BaseObject {
+
+public class BaseObject {
 
     public Color3 color = new Color3(255, 255, 255);
     public boolean visible = true;
 
     private int id;
-    private Body body = null;
+    protected Body body = null;
 
     protected Vec2 position = new Vec2(0.0f, 0.0f);
     protected float rotation = 0.0f;
@@ -32,13 +33,14 @@ public abstract class BaseObject {
     protected float[] vertices;
 
     // Saved for when body is recreated on a vert refresh
-    private float friction;
-    private float density;
-    private float restitution;
+    protected float friction;
+    protected float density;
+    protected float restitution;
 
-    private int positionHandle = GLES20.glGetAttribLocation(Renderer.getShaderProg(), "Position");
-    private int colorHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "Color");
-    private int modelHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "ModelView");
+    protected int positionHandle = GLES20.glGetAttribLocation(Renderer.getShaderProg(), "Position");
+    protected int colorHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "Color");
+    protected int modelHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "ModelView");
+    private int pointHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "PointSize");
 
     public BaseObject() {
 
@@ -47,6 +49,7 @@ public abstract class BaseObject {
     }
 
     public void setVertices(float[] _vertices) {
+
 
         this.vertices = _vertices;
 
@@ -90,11 +93,13 @@ public abstract class BaseObject {
         // Load our matrix and color into our shader
         GLES20.glUniformMatrix4fv(modelHandle, 1, false, modelView, 0);
         GLES20.glUniform4fv(colorHandle, 1, color.toFloatArray(), 0);
+        GLES20.glUniform1f(pointHandle, 10.0f);
 
         // Set up pointers, and draw using our vertBuffer as before
         GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertBuffer);
         GLES20.glEnableVertexAttribArray(positionHandle);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, vertices.length / 3);
+        //GLES20.glDrawArrays(GLES20.GL_POINTS, 0, vertices.length / 3);
         GLES20.glDisableVertexAttribArray(positionHandle);
     }
 
@@ -144,6 +149,7 @@ public abstract class BaseObject {
 
         // Create fixture from vertices
         PolygonShape shape = new PolygonShape();
+
         Vec2[] verts = new Vec2[vertices.length / 3];
 
         int vertIndex = 0;

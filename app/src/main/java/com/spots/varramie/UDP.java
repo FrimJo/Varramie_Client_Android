@@ -11,6 +11,12 @@ import android.os.RemoteException;
 import android.support.v4.content.LocalBroadcastManager;
 import android.widget.Toast;
 
+import com.spots.liquidfun.Cluster;
+import com.spots.liquidfun.ClusterManager;
+import com.spots.liquidfun.Renderer;
+
+import org.jbox2d.common.Vec2;
+
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -107,13 +113,13 @@ public class UDP extends Service {
 
 	public void receive(ByteBuffer bb){
 
-		int client_id = bb.get(2) & 0xff;
-		float client_touchX = bb.getFloat(3);
-		float client_touchY = bb.getFloat(7);
+        byte action = bb.get(0);
+        int client_id = bb.get(2) & 0xff;
+        Vec2 position_norm = new Vec2(bb.getFloat(3), bb.getFloat(7));
 		float pressure = bb.getFloat(11);
+        Vec2 velocity = new Vec2(bb.getFloat(15), bb.getFloat(19));
 
-		byte action = bb.get(0);
-		Client.INSTANCE.receiveTouch(client_touchX, client_touchY, pressure,client_id, action);
+		Client.INSTANCE.receiveTouch(position_norm, pressure, client_id, action, velocity);
 	}
 
 	private class ReceiveThread extends Thread {
@@ -142,8 +148,8 @@ public class UDP extends Service {
 							if(!Checksum.isCorrect(bb.array()))
 								throw new ChecksumException("Wrong checksum received in JOIN");
 							int id = bb.get(2) & 0xff;
+                            ClusterManager.myClusterId = id;
 							hasJoined = true;
-							Spot.SpotManager.setMySpotId(id);
 							break;
 						case OpCodes.NOTREG:
 							bb = ByteBuffer.wrap( new byte[]{bytes[0], bytes[1]}, 0, 2);
@@ -180,7 +186,8 @@ public class UDP extends Service {
 							break;
 						default:
 							bb = ByteBuffer.wrap(new byte[]{ bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
-									bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14] }, 0, 15);
+									bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14],
+                                    bytes[15], bytes[16], bytes[17], bytes[18], bytes[19], bytes[20], bytes[21], bytes[22] }, 0, 23);
 							if(!Checksum.isCorrect(bb.array()))
 								throw new ChecksumException("Wrong checksum received in DEFAULT");
 							receive(bb);
@@ -194,10 +201,6 @@ public class UDP extends Service {
 					e.printStackTrace();
 				}
 			}
-			/*if (multicastLock != null) {
-				multicastLock.release();
-				multicastLock = null;
-			}*/
 		}
 	}
 
@@ -210,15 +213,14 @@ public class UDP extends Service {
 		@Override
 		public void run(){
 			try {
-				while(Spot.SpotManager.getMySpot() == null){
+				while(ClusterManager.myCluster == null){
 					sleep(1000);
 				}
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 
-			Spot mySpot = Spot.SpotManager.getMySpot();
-			byte[] bytes = PDU_Factory.alive(mySpot.getId());
+			byte[] bytes = PDU_Factory.alive(ClusterManager.myCluster.getId());
 			DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
 			while(!stop){
 				try {
@@ -283,14 +285,23 @@ public class UDP extends Service {
 
 		@Override
 		public void run(){
-			TouchState prevTouchState = new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.32f);
+			TouchState prevTouchState = new TouchState(OpCodes.ACTION_UP, new Vec2(0.0f, 0.0f), 0.32f, new Vec2(0.0f, 0.0f));
+
 			try {
+                while(ClusterManager.myCluster == null){
+                    sleep(1000);
+                }
+
+                int id = ClusterManager.myCluster.getId();
+                Vec2 position_norm = null, velocity = null;
 				while(!stopSender){
 					TouchState touchState = Client.INSTANCE.takeTouchState();
 					if(!touchState.equals(prevTouchState)){
 						prevTouchState = touchState;
+                        position_norm = touchState.getPositionNorm();
+                        velocity = touchState.getVelocity();
 						byte action = touchState.getState();
-						byte[] bytes = PDU_Factory.touch_action(touchState.getX(), touchState.getY(), touchState.getPressure(), action, Spot.SpotManager.getMySpotId());
+						byte[] bytes = PDU_Factory.touch_action(position_norm.x, position_norm.y, touchState.getPressure(), action, id, velocity.x, velocity.y);
 						DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
 						try {
 							multiSocket.send(dp);
@@ -301,10 +312,8 @@ public class UDP extends Service {
 						}
 					}
 				}
-				byte[] quitBytes = PDU_Factory.quit(Spot.SpotManager.getMySpotId());
+				byte[] quitBytes = PDU_Factory.quit(id);
 				DatagramPacket dp = new DatagramPacket(quitBytes, quitBytes.length, server_address, server_port);
-
-
 				multiSocket.send(dp);
 			} catch (IOException e) {
 				// Catches the exception but does nothing.

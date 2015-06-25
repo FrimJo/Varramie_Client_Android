@@ -1,12 +1,26 @@
 package com.spots.liquidfun;
 
+import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 
+
+import com.spots.varramie.R;
+
+import org.jbox2d.collision.shapes.CircleShape;
+import org.jbox2d.common.Color3f;
 import org.jbox2d.common.Vec2;
+import org.jbox2d.particle.ParticleColor;
+import org.jbox2d.particle.ParticleGroup;
+import org.jbox2d.particle.ParticleGroupDef;
+import org.jbox2d.particle.ParticleGroupType;
+import org.jbox2d.particle.ParticleSystem;
+import org.jbox2d.particle.ParticleType;
 
 import java.util.ArrayList;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -15,13 +29,8 @@ public class Renderer implements GLSurfaceView.Renderer {
 
     private static int nextId = 0;
     public static ArrayList<BaseObject> actors = new ArrayList<BaseObject>();
+    public static final LinkedBlockingQueue<ParticleGroup> groupQ = new LinkedBlockingQueue<>();
 
-    private BoxObject leftBoundary;
-    private BoxObject rightBoundary;
-    private BoxObject topBoundary;
-    private BoxObject bottomBoundary;
-
-    private BoxObject[] boundraies = new BoxObject[4];  // Left, right, top, bottom
     private final float BOUNDRAIES_FRICTION = 0.2f;
 
     private static float PPM = 128.0f;
@@ -29,30 +38,40 @@ public class Renderer implements GLSurfaceView.Renderer {
     public static Vec2 screenToWorld(Vec2 cords) {
         return new Vec2(cords.x / PPM, cords.y / PPM);
     }
+    public static float screenToWorld(float val) {
+        return val / PPM;
+    }
 
     public static Vec2 worldToScreen(Vec2 cords) {
         return new Vec2(cords.x * PPM, cords.y * PPM);
+    }
+
+    public static float worldToScreen(float val){
+        return val * PPM;
     }
 
     public static float getPPM() {
         return PPM;
     }
 
-    public static float getMPP() {
-        return 1.0f / PPM;
-    }
+    public static int screenW;
+    public static int screenH;
+    public static float screenRatio;
 
-    private static long spawnDelay = 0;
-    private static int screenW;
-    private static int screenH;
+    private final Context context;
+
+    //private static BoxObject b;
+    //private static Particle p;
 
     private static String vertShaderCode =
             "attribute vec3 Position;" +
                     "uniform mat4 Projection;" +
                     "uniform mat4 ModelView;" +
+                    "uniform float PointSize;" +
                     "void main() {" +
                     "  mat4 mvp = Projection * ModelView;" +
                     "  gl_Position = mvp * vec4(Position.xyz, 1);" +
+                    "  gl_PointSize = PointSize;" +
                     "}\n";
 
     private static String fragShaderCode =
@@ -67,6 +86,10 @@ public class Renderer implements GLSurfaceView.Renderer {
 
     public static int getShaderProg() {
         return shaderProg;
+    }
+
+    public Renderer(Context _context){
+        context = _context;
     }
 
     @Override
@@ -92,22 +115,8 @@ public class Renderer implements GLSurfaceView.Renderer {
         GLES20.glUseProgram(shaderProg);
 
         // Normal stuff
-        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        GLES20.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-        boundraies[0] = new BoxObject(10, 800);
-        boundraies[0].color = new Color3(0, 255, 0);
-
-        boundraies[1] = new BoxObject(10, 800);
-        boundraies[1].color = new Color3(0, 255, 0);
-
-        boundraies[2] = new BoxObject(800, 10);
-        boundraies[2].color = new Color3(0, 255, 0);
-
-        boundraies[3] = new BoxObject(800, 10);
-        boundraies[3].color = new Color3(0, 255, 0);
-
-
-        Physics.setGravity(new Vec2(0, -0)); //Physics.setGravity(new Vec2(0, -10));
     }
 
     @Override
@@ -117,30 +126,12 @@ public class Renderer implements GLSurfaceView.Renderer {
 
         // Set ortho projection
         int projectionHandle = GLES20.glGetUniformLocation(shaderProg, "Projection");
-        Matrix.orthoM(projection, 0, 0, width, 0, height, -10, 10);
+        Matrix.orthoM(projection, 0, 0, width, height, 0, -10, 10);
         GLES20.glUniformMatrix4fv(projectionHandle, 1, false, projection, 0);
-
-        ParticleSystemDef test = new ParticleSystemDef();
-
 
         screenW = width;
         screenH = height;
-
-        boundraies[0].setHeight(height);
-        boundraies[0].setPosition(new Vec2(0.0f, 0.0f));
-        boundraies[0].createPhysicsBody(0, BOUNDRAIES_FRICTION, 0.8f);
-
-        boundraies[1].setHeight(height);
-        boundraies[1].setPosition(new Vec2(width - 10.0f, 0.0f));
-        boundraies[1].createPhysicsBody(0, BOUNDRAIES_FRICTION, 0.8f);
-
-        boundraies[2].setWidth(width);
-        boundraies[2].setPosition(new Vec2(0.0f, 0.0f));
-        boundraies[2].createPhysicsBody(0, BOUNDRAIES_FRICTION, 0.8f);
-
-        boundraies[3].setWidth(width);
-        boundraies[3].setPosition(new Vec2(0.0f, height - 10.0f));
-        boundraies[3].createPhysicsBody(0, BOUNDRAIES_FRICTION, 0.8f);
+        screenRatio = (float)width/ (float)height;
 
     }
 
@@ -150,28 +141,30 @@ public class Renderer implements GLSurfaceView.Renderer {
         // Note when we begin
         long startTime = System.currentTimeMillis();
 
-        if (System.currentTimeMillis() - spawnDelay > 100) {
+        if(!groupQ.isEmpty()){
+            ParticleGroup grp = groupQ.poll();
 
-            //CircleObject obj = new CircleObject((float)Math.random() * 50, 10);
+            int id = (int) grp.getUserData();
 
-            BoxObject obj = new BoxObject((float) Math.random() * 50, (float) Math.random() * 50);
-            obj.color = new Color3();
-            obj.color.r = (int) (Math.random() * 255);
-            obj.color.g = (int) (Math.random() * 255);
-            obj.color.b = (int) (Math.random() * 255);
-
-            obj.setPosition(new Vec2(screenW / 2, screenH / 2));
-            obj.createPhysicsBody(1.0f, 0.2f, 0.5f);
-
-            spawnDelay = System.currentTimeMillis();
+            if(id == ClusterManager.myClusterId)
+                ClusterManager.myCluster = new Cluster(grp, (int) grp.getUserData());
+            else
+                new Cluster(grp, (int) grp.getUserData());
         }
+
 
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+        GLES20.glEnable(GLES20.GL_BLEND);
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // Draw everything
-        for (BaseObject obj : actors) {
-            obj.draw(gl);
+        //b.draw(gl);
+        for(int i = 0; i < ClusterManager.allClusters.size(); i++){
+            ClusterManager.allClusters.valueAt(i).draw(gl);
         }
+
+        GLES20.glDisable(GLES20.GL_BLEND);
+
+        //p.draw(gl);
 
         // Calculate how much time rendering took
         long drawTime = System.currentTimeMillis() - startTime;
@@ -193,4 +186,5 @@ public class Renderer implements GLSurfaceView.Renderer {
     public static int getNextId() {
         return nextId++;
     }
+
 }
