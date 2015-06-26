@@ -112,7 +112,6 @@ public class Physics {
     }
 
     public static Vec2[] getVelocities(ParticleGroup group){
-
         int length = group.getParticleCount();
         Vec2[] src = physicsWorld.getParticleVelocityBuffer();
         int srcPos = group.getBufferIndex();

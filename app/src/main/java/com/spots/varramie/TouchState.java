@@ -1,48 +1,41 @@
 package com.spots.varramie;
 
+import org.jbox2d.common.Vec2;
+
 /**
  * Created by fredrikjohansson on 15-06-08.
  */
 public class TouchState {
     private byte _state;
-    private float _x;
-    private float _y;
+    private final Vec2 _position_norm; // Normalized position x and y divided by the hight of the screen
     private float _pressure;
+    private final Vec2 _velocity;
 
-    public TouchState(final byte startState, final float x, final float y, final float pressure){
+    public TouchState(final byte startState, Vec2 position_norm, final float pressure, final Vec2 velocity){
         _state = startState;
-        _x = x;
-        _y = y;
+        _position_norm = position_norm;
         _pressure = pressure;
+        _velocity = velocity;
     }
 
     public TouchState(TouchState touchState){
-        _state = touchState.getState();
-        _x = touchState.getX();
-        _y = touchState.getY();
-        _pressure = touchState.getPressure();
+        _state = touchState._state;
+        _position_norm = touchState._position_norm;
+        _pressure = touchState._pressure;
+        _velocity = touchState._velocity;
     }
 
     public byte getState(){
         return _state;
     }
 
-    public void setState(final float x, final float y, final byte state, final float pressure){
+    public void setState(final byte state){
         _state = state;
-        _x = x;
-        _y = y;
-        _pressure = pressure;
     }
 
-    public float getX(){
-        return _x;
-    }
-
-    public float getY(){
-        return _y;
-    }
-
+    public Vec2 getPositionNorm() { return _position_norm; }
     public float getPressure() { return _pressure; }
+    public Vec2 getVelocity() { return _velocity; }
 
     @Override
     public boolean equals(Object o){
@@ -54,13 +47,9 @@ public class TouchState {
 
         TouchState ts = (TouchState) o;
 
-        if(ts._x != _x || ts._y != _y || ts._state != _state)
+        if(ts._position_norm.x != _position_norm.x || ts._position_norm.y != _position_norm.y || ts._state != _state || ts._velocity.x != ts._velocity.x || ts._velocity.y != ts._velocity.y || ts._state != _state)
             return false;
 
         return true;
-    }
-
-    public static TouchState cloneState(TouchState touchState){
-        return new TouchState(touchState);
     }
 }

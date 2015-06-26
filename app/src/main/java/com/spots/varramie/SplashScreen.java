@@ -112,7 +112,8 @@ public class SplashScreen extends Activity {
             //byteAddress = InetAddress.getByName("192.168.0.3").getAddress(); //Home address
             //byteAddress = InetAddress.getByName("130.239.237.19").getAddress(); //My mac at work address
             startService.putExtra("SERVER_IP_BYTE", byteAddress);
-            startService.putExtra("SERVER_PORT_INT", 8001);
+            startService.putExtra("SERVER_PORT_INT", 8001); //Work address
+            //startService.putExtra("SERVER_PORT_INT", 8002);
             startService(startService);
         } catch (UnknownHostException e) {
             Toast.makeText(getBaseContext(), "Could not start network service, pleae restart the app.", Toast.LENGTH_LONG).show();

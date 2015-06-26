@@ -10,7 +10,6 @@ public class Spot{
 
 	private static boolean defaultHiden = false;
 	private static final int NR_OF_CIRCLES = 10;
-	private final CircleArray<Circle> pointArray = new CircleArray<>(NR_OF_CIRCLES, Circle.class);
 	private Circle point;
 
 	private boolean active = false;
@@ -160,11 +159,6 @@ public class Spot{
 	
 	public int getId(){
 		return this.id;
-	}
-
-	public TouchState getState() {
-		Circle c = point;
-		return new TouchState(this.active?OpCodes.ACTION_MOVE:OpCodes.ACTION_UP, c.getX(), c.getY(), c.getPressure());
 	}
 
 
