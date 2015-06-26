@@ -1,7 +1,15 @@
 package com.spots.varramie;
 
 import android.graphics.Point;
+import android.text.method.Touch;
 import android.view.MotionEvent;
+
+import com.spots.liquidfun.Cluster;
+import com.spots.liquidfun.ClusterManager;
+import com.spots.liquidfun.Renderer;
+
+import org.jbox2d.common.Vec2;
+
 import java.io.IOException;
 import java.util.concurrent.LinkedBlockingDeque;
 
@@ -14,77 +22,147 @@ import java.util.concurrent.LinkedBlockingDeque;
  * @author Mattias Edin 
  */
 public enum Client {
-	INSTANCE;
+    INSTANCE;
 
-	private IGUI					gui;
-	private final LinkedBlockingDeque<TouchState> touchStates = new LinkedBlockingDeque<>();
-	//private final TouchState		touchState = new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.35f);
-	
-	/**
-	 * The constructor for class Client. Being a singleton implies that
-	 * the constructor is empty because object wont and can't be
-	 * generated. This class is initialized from main in the
-	 * init method and used through Client.INSTANCE.[method].
-	 */
-	Client(){ }
+    private IGUI					gui;
+    private final LinkedBlockingDeque<TouchState> touchStates = new LinkedBlockingDeque<>();
+    private Thread sender;
+    public boolean running = true;
+    //private final TouchState		touchState = new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.35f);
 
-
-	public void init(final IGUI gui){
-		this.gui = gui;
-		//touchStates.add(new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.32f));
-		println("Initiating the client . . .");
-	}
-
-	public void sendTouchAction(final float x, final float y, final byte action, final float pressure) {
+    /**
+     * The constructor for class Client. Being a singleton implies that
+     * the constructor is empty because object wont and can't be
+     * generated. This class is initialized from main in the
+     * init method and used through Client.INSTANCE.[method].
+     */
+    Client(){ }
 
 
-		// Set my spot status
-		switch (action) {
-			case OpCodes.ACTION_DOWN:
-				Spot.SpotManager.activateMySpot(x, y, pressure);
-				//connectedServer.interruptSenderThread();
-				break;
-			case OpCodes.ACTION_MOVE:
-				Spot.SpotManager.updateMySpot(x, y, pressure);
+    public void init(final IGUI gui){
+        this.gui = gui;
+        //touchStates.add(new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.32f));
+        println("Initiating the client . . .");
+        sender = new Thread(){
 
-				break;
-			case OpCodes.ACTION_UP:
-				Spot.SpotManager.deactivateMySpot(x, y, pressure);
-				break;
+            @Override
+            public void run(){
 
-			default:
-				break;
-		}
+                while(running){
+                    if(latestTouch != null){
+                        break;
+                    }
+                    try{
+                        sleep(10);
+                    } catch (InterruptedException e) {
 
-		TouchState t = new TouchState(action, x, y, pressure);
-		touchStates.add(t);
-	}
+                    }
+                }
+                long time;
+                TouchState ts;
+                while(running){
+                    try {
+                        ts = new TouchState(latestTouch);
+                        if(ClusterManager.myCluster != null){
+                            time = 10;
+                        }else{
+                            ts.setState(OpCodes.ACTION_UP);
+                            time = 100;
+                        }
+                        touchStates.add(ts);
+                        sleep(time);
+                    } catch (InterruptedException e) {
 
-	public void receiveTouch(float x, float y, float pressure, int id, byte action){
-		Spot s = Spot.SpotManager.getSpot(id);
+                    }
+                }
 
-		if(s == null)
-			return;
-		Spot mySpot = Spot.SpotManager.getMySpot();
-		if(id == mySpot.getId())
-			return;
+            }
+        };
+        sender.start();
+    }
 
-		switch (action) {
-			case OpCodes.ACTION_DOWN:
-				s.activate(x, y, pressure);
-				break;
-			case OpCodes.ACTION_MOVE:
-				s.update(x, y, pressure);
-				break;
-			case OpCodes.ACTION_UP:
-				s.deactivate(x, y, pressure);
-				break;
+    private TouchState latestTouch;
 
-			default:
-				break;
-		}
+    public void sendTouchAction(final Vec2 position_screen, final byte action, final float pressure, final Vec2 velocity) {
+        sender.interrupt();
 
-		if(mySpot.isActive()){
+        if(ClusterManager.myCluster == null){
+            if(ClusterManager.myClusterIsCreating) return;
+            ClusterManager.createNewCluster(ClusterManager.myClusterId, position_screen);
+            ClusterManager.myClusterIsCreating = true;
+            return;
+        }else if(ClusterManager.myClusterIsCreating){
+            ClusterManager.myClusterIsCreating = false;
+        }
+
+
+        // Set my spot status
+        switch (action) {
+            case OpCodes.ACTION_DOWN:
+                ClusterManager.myCluster.push(position_screen, pressure);
+                break;
+            case OpCodes.ACTION_MOVE:
+                ClusterManager.myCluster.push(position_screen, pressure);
+                break;
+            case OpCodes.ACTION_UP:
+                ClusterManager.myCluster.push(position_screen, pressure);
+                ClusterManager.myCluster.destroyPhysicsGroup();
+                ClusterManager.myCluster = null;
+                break;
+            default:
+                break;
+        }
+
+        Vec2 position_norm = new Vec2(position_screen.x / Renderer.screenW, position_screen.y / Renderer.screenH);
+
+        //touchStates.add(new TouchState(action, position_norm, pressure, velocity));
+        latestTouch = new TouchState(action, position_norm, pressure, velocity);
+    }
+
+    public void receiveTouch(Vec2 position_norm, float pressure, int id, byte action, Vec2 velocity){
+        if(id == ClusterManager.myClusterId)
+            return;
+
+        Cluster c = ClusterManager.allClusters.get(id);
+
+        // Convert normalized cordinates to screen cordinates
+        Vec2 position_screen = new Vec2(position_norm.x * Renderer.screenW, position_norm.y * Renderer.screenH);
+
+        Boolean isCreating = ClusterManager.allClustersIsCreating.get(id);
+
+        if(c == null){
+            if(isCreating == null){
+                ClusterManager.allClustersIsCreating.put(id, true);
+                ClusterManager.createNewCluster(id, position_screen);
+                MainActivity.notfiyUserConnected();
+            }
+            return;
+        }else if(isCreating.booleanValue()){
+            ClusterManager.allClustersIsCreating.put(id, false);
+        }
+
+
+
+
+        switch (action) {
+            case OpCodes.ACTION_DOWN:
+                c.push(position_screen, pressure);
+                break;
+            case OpCodes.ACTION_MOVE:
+                c.push(position_screen, pressure);
+                break;
+            case OpCodes.ACTION_UP:
+                c.destroyPhysicsGroup();
+                ClusterManager.allClustersIsCreating.remove(id);
+                break;
+
+            default:
+                break;
+        }
+
+
+
+		/*if(mySpot.isActive()){
 			TouchState t = mySpot.getState();
 			float my_x = t.getX();
 			float my_y = t.getY();
@@ -98,30 +176,26 @@ public enum Client {
 				this.gui.onColide();
 				println("Touch!");	
 			}
-		}
-	}
+		}*/
+    }
 
-	public void shutDown() throws IOException{
+    public void shutDown(){
+        running = false;
+    }
 
-	}
+    /**
+     * Tells the GUI to print a string to the user of the interface.
+     * This method invokes the runLater method of the GUI, and sends
+     * a new thread as a parameter. The GUI then runs the run
+     * method when possible.
+     * @param str The string to print.
+     */
+    public synchronized void println(final String str){
+        if(this.gui != null)
+            this.gui.println(str);
+    }
 
-	/**
-	 * Tells the GUI to print a string to the user of the interface. 
-	 * This method invokes the runLater method of the GUI, and sends
-	 * a new thread as a parameter. The GUI then runs the run
-	 * method when possible.
-	 * @param str The string to print.
-	 */
-	public synchronized void println(final String str){
-		if(this.gui != null)
-			this.gui.println(str);
-	}
-
-	public TouchState takeTouchState() throws InterruptedException {
-		return touchStates.take();
-	}
-
-	public void addTouchState(final TouchState t){
-		touchStates.add(t);
-	}
+    public TouchState takeTouchState() throws InterruptedException {
+        return touchStates.take();
+    }
 }

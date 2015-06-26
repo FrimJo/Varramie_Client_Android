@@ -77,9 +77,11 @@ public class Renderer implements GLSurfaceView.Renderer {
     private static String fragShaderCode =
             "precision mediump float;" +
                     "uniform vec4 Color;" +
+                    "uniform sampler2D u_Texture;    // The input texture." +
+                    "varying vec2 v_TexCoordinate;   // Interpolated texture coordinate per fragment." +
                     "void main() {" +
                     "  gl_FragColor = Color;" +
-                    "}\n";
+                    "}";
 
     private static int shaderProg;
     private static float[] projection = new float[16];
