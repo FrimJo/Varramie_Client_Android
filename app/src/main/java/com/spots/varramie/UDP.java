@@ -3,14 +3,17 @@ package com.spots.varramie;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.net.wifi.WifiManager;
 import android.os.IBinder;
 import android.os.IInterface;
+import android.os.Looper;
 import android.os.Parcel;
 import android.os.RemoteException;
 import android.support.v4.content.LocalBroadcastManager;
 import android.widget.Toast;
 
+import com.spots.facebook.MainFragment;
 import com.spots.liquidfun.Cluster;
 import com.spots.liquidfun.ClusterManager;
 import com.spots.liquidfun.Renderer;
@@ -19,6 +22,7 @@ import org.jbox2d.common.Vec2;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
@@ -43,14 +47,18 @@ public class UDP extends Service {
     private InetAddress				server_address;
     private  int					server_port;
     private  MulticastSocket		multiSocket;
-    private Sender					senderThread = new Sender();
+
     private  InetAddress			group_address;
     private boolean 				hasJoined = false;
     private boolean					receiveStop = false;
     private boolean					stopSender = false;
-    private AliveThread				aliveThread = new AliveThread();
-    private JoinThread				joinThread = new JoinThread();
-    private ReceiveThread			receiveThread = new ReceiveThread();
+
+    // Threads
+    private Sender					senderThread;
+    private AliveThread				aliveThread;
+    private JoinThread				joinThread;
+    private ReceiveThread			receiveThread;
+    private String                  userId;
 
     //private WifiManager.MulticastLock multicastLock;
 
@@ -69,16 +77,11 @@ public class UDP extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId)
     {
-		/*WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-		multicastLock = wifi.createMulticastLock("multicastLock");
-		multicastLock.setReferenceCounted(true);
-		multicastLock.acquire();*/
-
-
         try {
             byte[] byteAddress = intent.getByteArrayExtra("SERVER_IP_BYTE");
             this.server_address = InetAddress.getByAddress(byteAddress);
             this.server_port = intent.getIntExtra("SERVER_PORT_INT", 0);
+            this.userId = intent.getStringExtra("USER_ID_STRING");
         } catch (UnknownHostException e) {
             Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
         }
@@ -92,6 +95,11 @@ public class UDP extends Service {
             Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
         }
 
+        senderThread = new Sender();
+        aliveThread = new AliveThread();
+        joinThread = new JoinThread();
+        receiveThread = new ReceiveThread();
+
         this.receiveThread.start();	// Start the receive thread
         this.joinThread.start();	// Begin try to connect to the server
 
@@ -100,26 +108,29 @@ public class UDP extends Service {
 
     @Override
     public boolean stopService(Intent name){
-        disconnect();
+
+        this.stop = true;
+        this.stopSender = true;
+        this.receiveStop = true;
+        this.aliveThread.interrupt();
+        this.joinThread.interrupt();
+        this.senderThread.interrupt();
+        this.receiveThread.interrupt();
+        try {
+            multiSocket.leaveGroup(group_address);
+        } catch (IOException e) {
+            // Catches the exception but does nothing
+        }
+        this.multiSocket.close();
         return super.stopService(name);
     }
 
     @Override
     public void onDestroy()
     {
+        Client.INSTANCE.println("onDestory in service UDP.");
         stopSelf();
         super.onDestroy();
-    }
-
-    public void receive(ByteBuffer bb){
-
-        byte action = bb.get(0);
-        int client_id = bb.get(2) & 0xff;
-        Vec2 position_norm = new Vec2(bb.getFloat(3), bb.getFloat(7));
-        float pressure = bb.getFloat(11);
-        Vec2 velocity = new Vec2(bb.getFloat(15), bb.getFloat(19));
-
-        Client.INSTANCE.receiveTouch(position_norm, pressure, client_id, action, velocity);
     }
 
     private class ReceiveThread extends Thread {
@@ -130,7 +141,7 @@ public class UDP extends Service {
 
         @Override
         public void run() {
-
+            Looper.prepare();
             byte[] buffer = new byte[BUFFER_SIZE];
             DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
             System.setProperty("java.net.preferIPv4Stack", "true");
@@ -140,15 +151,11 @@ public class UDP extends Service {
                     multiSocket.receive(receivePacket);
 
                     byte[] bytes = receivePacket.getData();
+                    byte[] byteArray;
                     ByteBuffer bb;
                     byte action = bytes[0];
                     switch (action) {
                         case OpCodes.JOIN:
-                            bb = ByteBuffer.wrap( new byte[]{bytes[0], bytes[1], bytes[2]}, 0, 3);
-                            if(!Checksum.isCorrect(bb.array()))
-                                throw new ChecksumException("Wrong checksum received in JOIN");
-                            int id = bb.get(2) & 0xff;
-                            ClusterManager.myClusterId = id;
                             hasJoined = true;
                             break;
                         case OpCodes.NOTREG:
@@ -185,12 +192,35 @@ public class UDP extends Service {
                         case OpCodes.ALIVE:
                             break;
                         default:
-                            bb = ByteBuffer.wrap(new byte[]{ bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
-                                    bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14],
-                                    bytes[15], bytes[16], bytes[17], bytes[18], bytes[19], bytes[20], bytes[21], bytes[22] }, 0, 23);
-                            if(!Checksum.isCorrect(bb.array()))
-                                throw new ChecksumException("Wrong checksum received in DEFAULT");
-                            receive(bb);
+
+                            int default_id_length = bytes[2] & 0xff;
+                            bb = ByteBuffer.allocateDirect(23 + default_id_length);
+                            bb.put(bytes, 0, 23 + default_id_length);
+                            byteArray = new byte[23 + default_id_length];
+                            bb.position(0);
+                            bb.get(byteArray);
+
+                            if(!Checksum.isCorrect(byteArray))
+                                throw new ChecksumException("The checksum of the package is not correct.");
+
+
+                            byte[] default_id_array = new byte[default_id_length];
+                            bb.position(3);
+                            bb.get(default_id_array);
+                            String default_id = new String(default_id_array, "UTF-8");
+
+
+                            bb.position(3 + default_id_length);
+                            float x = bb.getFloat();
+                            float y = bb.getFloat();
+                            float pressure = bb.getFloat();
+                            float vel_x = bb.getFloat();
+                            float vel_y = bb.getFloat();
+
+                            Vec2 position_norm = new Vec2(x, y);
+                            Vec2 velocity = new Vec2(vel_x, vel_y);
+
+                            Client.INSTANCE.receiveTouch(position_norm, pressure, default_id, action, velocity);
                             break;
                     }
                 } catch (SocketException e) {
@@ -212,15 +242,16 @@ public class UDP extends Service {
 
         @Override
         public void run(){
+            Looper.prepare();
             try {
-                while(ClusterManager.myCluster == null){
+                while(ClusterManager.myClusterId == null){
                     sleep(1000);
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
 
-            byte[] bytes = PDU_Factory.alive(ClusterManager.myCluster.getId());
+            byte[] bytes = PDU_Factory.alive(ClusterManager.myClusterId);
             DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
             while(!stop){
                 try {
@@ -244,10 +275,11 @@ public class UDP extends Service {
 
         @Override
         public void run(){
+            Looper.prepare();
             receiveStop = false;
             stopSender = false;
             hasJoined = false;
-            byte[] bytes = PDU_Factory.join();
+            byte[] bytes = PDU_Factory.join(userId);
             //byte checksum = bytes[1];
             //bytes[1] = (byte) -13;
             DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
@@ -256,7 +288,7 @@ public class UDP extends Service {
                     multiSocket.send(dp);
                     sleep(1000);
                 }
-                sendMessage(OpCodes.JOIN);
+                sendMessage(OpCodes.JOIN, userId);
                 aliveThread.start();	// Continually send alive messages to server
                 senderThread.start();	// Start to send status to server
             } catch (InterruptedException e) {
@@ -269,10 +301,11 @@ public class UDP extends Service {
         }
 
         // Send an Intent with an action named "my-event".
-        private void sendMessage(byte action) {
+        private void sendMessage(byte action, String id) {
             Intent intent = new Intent("my-event");
             // add data
             intent.putExtra("action", action);
+            intent.putExtra("id", id);
             LocalBroadcastManager.getInstance(getBaseContext()).sendBroadcast(intent);
         }
     }
@@ -285,14 +318,13 @@ public class UDP extends Service {
 
         @Override
         public void run(){
+            Looper.prepare();
             TouchState prevTouchState = new TouchState(OpCodes.ACTION_UP, new Vec2(0.0f, 0.0f), 0.32f, new Vec2(0.0f, 0.0f));
-
             try {
                 while(ClusterManager.myCluster == null){
                     sleep(1000);
                 }
 
-                int id = ClusterManager.myCluster.getId();
                 Vec2 position_norm = null, velocity = null;
                 while(!stopSender){
                     TouchState touchState = Client.INSTANCE.takeTouchState();
@@ -301,7 +333,7 @@ public class UDP extends Service {
                         position_norm = touchState.getPositionNorm();
                         velocity = touchState.getVelocity();
                         byte action = touchState.getState();
-                        byte[] bytes = PDU_Factory.touch_action(position_norm.x, position_norm.y, touchState.getPressure(), action, id, velocity.x, velocity.y);
+                        byte[] bytes = PDU_Factory.touch_action(position_norm.x, position_norm.y, touchState.getPressure(), action, userId, velocity.x, velocity.y);
                         DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
                         try {
                             multiSocket.send(dp);
@@ -312,7 +344,7 @@ public class UDP extends Service {
                         }
                     }
                 }
-                byte[] quitBytes = PDU_Factory.quit(id);
+                byte[] quitBytes = PDU_Factory.quit(userId);
                 DatagramPacket dp = new DatagramPacket(quitBytes, quitBytes.length, server_address, server_port);
                 multiSocket.send(dp);
             } catch (IOException e) {
@@ -324,24 +356,6 @@ public class UDP extends Service {
 
     }
 
-    /**
-     * Makes the run thread of UDP to end and close the sockets.
-     */
-    public void disconnect(){
-        this.stop = true;
-        this.stopSender = true;
-        this.receiveStop = true;
-        this.aliveThread.interrupt();
-        this.joinThread.interrupt();
-        this.senderThread.interrupt();
-        try {
-            multiSocket.leaveGroup(group_address);
-        } catch (IOException e) {
-            // Catches the exception but does nothing
-        }
-        this.multiSocket.close();
-
-    }
 
     private class ChecksumException extends Exception {
         public ChecksumException(String str){

@@ -42,6 +42,7 @@ public class Checksum {
         byte orgChecksum = bytes[1];
         bytes[1] = '\0';
         byte newChecksum = Checksum.calc(bytes, bytes.length );
+        bytes[1] = orgChecksum;
         return orgChecksum == newChecksum;
     }
 }

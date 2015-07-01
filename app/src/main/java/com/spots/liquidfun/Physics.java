@@ -32,13 +32,6 @@ public class Physics {
     public static float PARTICLE_RADIUS = 15.0f;
     public static float GROUP_RADIUS = 150.0f;
 
-
-    // This is private, since we need to set it in the physics world, so directly
-    // modifying it from outside the class would bypass that. Why not set it
-    // in the world directly? The world is in another thread :) It might also
-    // stop and start back up again, so we need to have it saved.
-    private static Vec2 gravity = new Vec2(0, 0);
-
     // Threads!
     public static PhysicsThread pThread = null;
 
@@ -94,10 +87,6 @@ public class Physics {
         groupDestroyQ.add(group);
     }
 
-    public static Vec2 getGravity() {
-        return gravity;
-    }
-
     public static Vec2[] getParticles(ParticleGroup group){
 
         int length = group.getParticleCount();
@@ -112,14 +101,11 @@ public class Physics {
     }
 
     public static Vec2[] getVelocities(ParticleGroup group){
-
         int length = group.getParticleCount();
         Vec2[] src = physicsWorld.getParticleVelocityBuffer();
         int srcPos = group.getBufferIndex();
         Vec2[] dst = new Vec2[length];
         int dstPos = 0;
-
-
 
         System.arraycopy(src, srcPos, dst, dstPos, length);
 
@@ -133,8 +119,6 @@ public class Physics {
         int srcPos = group.getBufferIndex();
         ParticleColor[] dst = new ParticleColor[length];
         int dstPos = 0;
-
-
 
         System.arraycopy(src, srcPos, dst, dstPos, length);
 
@@ -155,14 +139,6 @@ public class Physics {
             return running;
         }
 
-        public Vec2 getGravity() {
-            if (physicsWorld != null) {
-                return physicsWorld.getGravity();
-            } else {
-                return null;
-            }
-        }
-
         @Override
         public void run() {
 
@@ -170,13 +146,9 @@ public class Physics {
             physicsWorld = new World(new Vec2(0.0f, 0.0f)); //physicsWorld = new World(new Vec2(0, -10));
             physicsWorld.setAllowSleep(true);
             physicsWorld.setParticleGravityScale(1.0f);
-            physicsWorld.setParticleDensity(1.7f);
-            physicsWorld.setParticleDamping(1.5f);
+            physicsWorld.setParticleDensity(2.0f);
+            physicsWorld.setParticleDamping(1.7f);
             physicsWorld.setParticleRadius(Renderer.screenToWorld(PARTICLE_RADIUS));
-
-
-
-            //physicsWorld.setParticleMaxCount(MAX_PARTICLES);
 
             running = true;
 

@@ -9,7 +9,7 @@
         android:layout_height="wrap_content"
         android:adjustViewBounds="true"
         android:scaleType="centerCrop"
-        android:src="@drawable/bubble_scape_splash_2"
+        android:src="@drawable/bubble_scape_splash"
         android:gravity="center_vertical"
         android:layout_centerVertical="true"
         android:layout_centerInParent="true"

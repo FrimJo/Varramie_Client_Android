@@ -17,16 +17,16 @@ import java.security.acl.Group;
  */
 public class GroupQueueDef {
 
-    private int groupID;
+    private String groupID;
     private ParticleGroupDef gd;
     private ParticleGroup grp = null;
 
-    public GroupQueueDef(int _groupID, ParticleGroupDef _gd) {
+    public GroupQueueDef(String _groupID, ParticleGroupDef _gd) {
         groupID = _groupID;
         gd = _gd;
     }
 
-    public int getGroupID() { return groupID; }
+    public String getGroupID() { return groupID; }
     public ParticleGroupDef getGd() { return gd; }
 
 }

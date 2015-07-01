@@ -1,7 +1,9 @@
-package com.spots.varramie;
+package com.spots.depricated;
 
 import android.opengl.GLES20;
 import android.util.SparseArray;
+
+import com.spots.varramie.ColorManager;
 
 public class Spot{
 

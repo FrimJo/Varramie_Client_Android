@@ -6,6 +6,8 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 
+import com.spots.depricated.Spot;
+
 public class EmptyActivity extends PreferenceActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
 
 	

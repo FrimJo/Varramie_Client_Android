@@ -1,15 +1,8 @@
-package com.spots.varramie;
+package com.spots.depricated;
 
-import android.graphics.Point;
-import android.opengl.EGLConfig;
-import android.opengl.GLES10;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
-import android.opengl.GLUtils;
 import android.opengl.Matrix;
-import android.util.Log;
-
-import java.nio.FloatBuffer;
 
 import javax.microedition.khronos.opengles.GL10;
 

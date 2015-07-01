@@ -1,4 +1,4 @@
-package com.spots.varramie;
+package com.spots.depricated;
 
 import android.opengl.GLES10;
 import android.opengl.GLES20;

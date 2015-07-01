@@ -40,11 +40,10 @@ public class BaseObject {
     protected int positionHandle = GLES20.glGetAttribLocation(Renderer.getShaderProg(), "Position");
     protected int colorHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "Color");
     protected int modelHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "ModelView");
-    private int pointHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "PointSize");
 
     public BaseObject() {
 
-        this.id = Renderer.getNextId();
+        //this.id = Renderer.getNextId();
         Renderer.actors.add(this);
     }
 
@@ -81,25 +80,18 @@ public class BaseObject {
         // Construct mvp to be applied to every vertex
         float[] modelView = new float[16];
 
-        // Equivalent of gl.glLoadIdentity()
         Matrix.setIdentityM(modelView, 0);
-
-        // gl.glTranslatef()
         Matrix.translateM(modelView, 0, position.x, position.y, 1.0f);
-
-        // gl.glRotatef()
         Matrix.rotateM(modelView, 0, rotation, 0, 0, 1.0f);
 
         // Load our matrix and color into our shader
         GLES20.glUniformMatrix4fv(modelHandle, 1, false, modelView, 0);
         GLES20.glUniform4fv(colorHandle, 1, color.toFloatArray(), 0);
-        GLES20.glUniform1f(pointHandle, 10.0f);
 
-        // Set up pointers, and draw using our vertBuffer as before
+        // Set up pointers, and draw using our vertBuffer
         GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertBuffer);
         GLES20.glEnableVertexAttribArray(positionHandle);
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, vertices.length / 3);
-        //GLES20.glDrawArrays(GLES20.GL_POINTS, 0, vertices.length / 3);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, vertices.length / 3);
         GLES20.glDisableVertexAttribArray(positionHandle);
     }
 

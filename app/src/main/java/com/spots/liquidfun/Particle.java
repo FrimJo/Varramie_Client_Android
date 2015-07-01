@@ -1,7 +1,13 @@
 package com.spots.liquidfun;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
+import android.opengl.GLUtils;
 import android.opengl.Matrix;
+
+import com.spots.varramie.R;
 
 import org.jbox2d.collision.shapes.PolygonShape;
 import org.jbox2d.common.Vec2;
@@ -20,51 +26,85 @@ import javax.microedition.khronos.opengles.GL10;
  */
 public class Particle {
 
-
-    private float[] vertices;
-    private FloatBuffer vertBuffer;
-    public Vec2 position = new Vec2(0.0f,0.0f);
+    public Vec2 position = new Vec2(100.0f,100.0f);
     public float size = Physics.PARTICLE_RADIUS;
     public float rotation = 0.0f;
     public Color3 color = new Color3(0, 0, 255);
     public float alpha = 1.0f;
 
-    private int positionHandle = GLES20.glGetAttribLocation(Renderer.getShaderProg(), "Position");
-    private int colorHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "Color");
-    private int modelHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "ModelView");
-    private int pointHandle = GLES20.glGetUniformLocation(Renderer.getShaderProg(), "PointSize");
 
-    public Particle(float size){
+    private final float[] positionData = {  -0.5f, -0.5f, 0.0f,
+                                        0.5f, -0.5f, 0.0f,
+                                        0.5f, 0.5f, 0.0f,
+                                        -0.5f, 0.5f, 0.0f,
+    };
 
-        // 1 point, 3 coords, 3 elements, 'over 9000!' problems
-        vertices = new float[3];
-        this.size = size;
-        refreshVertices();
+    private final float[] textureCoordinateData = { 0.0f, 1.0f,
+                                            1.0f, 1.0f,
+                                            1.0f, 0.0f,
+                                            0.0f, 0.0f,
+    };
+
+    //private int mTextureDataHandle = loadTexture(Renderer.context, R.drawable.white_point);
+
+    private FloatBuffer mPositions;
+    private FloatBuffer mCubeTextureCoordinates;
+
+    private int modelHandle =               GLES20.glGetUniformLocation(Renderer.getShaderProg(), "ModelView");
+    private int colorHandle =               GLES20.glGetUniformLocation(Renderer.getShaderProg(), "Color");
+    private int mTextureUniformHandle =     GLES20.glGetUniformLocation(Renderer.getShaderProg(), "u_Texture");
+
+    private int positionHandle =            GLES20.glGetAttribLocation(Renderer.getShaderProg(), "Position");
+    private int mTextureCoordinateHandle =  GLES20.glGetAttribLocation(Renderer.getShaderProg(), "a_TexCoordinate");
+
+
+    public Particle(float _size){
+
+        size = _size;
+        mPositions = ByteBuffer.allocateDirect(positionData.length * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(positionData);
+        mPositions.position(0);
+
+        mCubeTextureCoordinates = ByteBuffer.allocateDirect(textureCoordinateData.length * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(textureCoordinateData);
+        mCubeTextureCoordinates.position(0);
+
+        loadTexture(Renderer.context, R.drawable.white_point);
     }
 
-    private void refreshVertices() {
+    public int loadTexture(final Context context, final int resourceId)
+    {
+        final int[] textureHandle = new int[1];
 
-        // Modify our own vertex array, and pass it to setVertices
-        vertices[0] = 0.0f;
-        vertices[1] = 0.0f;
-        vertices[2] = 0.0f;
+        GLES20.glGenTextures(1, textureHandle, 0);
 
-        // Update!
-        setVertices(vertices);
-    }
+        if (textureHandle[0] != 0)
+        {
+            final BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inScaled = false;	// No pre-scaling
 
+            // Read in the resource
+            final Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), resourceId, options);
 
-    public void setVertices(float[] _vertices) {
+            // Bind to the texture in OpenGL
+            //GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle[0]);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
 
+            // Set filtering
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
 
-        vertices = _vertices;
+            // Load the bitmap into the bound texture.
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
 
-        // Allocate a new byte buffer to move the vertices into a FloatBuffer
-        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(vertices.length * 4);
-        byteBuffer.order(ByteOrder.nativeOrder());
-        vertBuffer = byteBuffer.asFloatBuffer();
-        vertBuffer.put(vertices);
-        vertBuffer.position(0);  // Index out of bounds?
+            // Recycle the bitmap, since its data has been loaded into OpenGL.
+            bitmap.recycle();
+        }
+
+        if (textureHandle[0] == 0)
+        {
+            throw new RuntimeException("Error loading texture.");
+        }
+
+        return textureHandle[0];
     }
 
     public void draw(GL10 unused) {
@@ -72,27 +112,33 @@ public class Particle {
         // Construct mvp to be applied to every vertex
         float[] modelView = new float[16];
 
-        // Equivalent of gl.glLoadIdentity()
         Matrix.setIdentityM(modelView, 0);
-
-        // gl.glTranslatef()
         Matrix.translateM(modelView, 0, position.x, position.y, 1.0f);
-
-        // gl.glRotatef()
         Matrix.rotateM(modelView, 0, rotation, 0, 0, 1.0f);
+        Matrix.scaleM(modelView, 0, size*1.5f, size*1.5f, 1.0f);
 
-        // Load our matrix and color into our shader
-        GLES20.glUniformMatrix4fv(modelHandle, 1, false, modelView, 0);
         float[] colorf = color.toFloatArray();
         colorf[3] = alpha;
-        GLES20.glUniform4fv(colorHandle, 1, colorf, 0);
-        GLES20.glUniform1f(pointHandle, size);
 
-        // Set up pointers, and draw using our vertBuffer as before
 
-        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertBuffer);
+        // Uniforms  (Projection is made in Renderer)
+        GLES20.glUniformMatrix4fv(modelHandle, 1, false, modelView, 0);     // ModelView
+        GLES20.glUniform4fv(colorHandle, 1, colorf, 0);                     // Color
+        GLES20.glUniform1i(mTextureUniformHandle, 0);                       // u_texture
+
+
+        // Atribute pointers
+        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, mPositions);                         // Position
+        GLES20.glVertexAttribPointer(mTextureCoordinateHandle, 2, GLES20.GL_FLOAT, false, 0, mCubeTextureCoordinates);  // a_texture
+
         GLES20.glEnableVertexAttribArray(positionHandle);
-        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, vertices.length / 3);
+        GLES20.glEnableVertexAttribArray(mTextureCoordinateHandle);
+
+
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, positionData.length / 3);
+
+
         GLES20.glDisableVertexAttribArray(positionHandle);
+        GLES20.glDisableVertexAttribArray(mTextureCoordinateHandle);
     }
 }

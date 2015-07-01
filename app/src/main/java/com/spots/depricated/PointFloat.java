@@ -1,4 +1,4 @@
-package com.spots.varramie;
+package com.spots.depricated;
 
 /**
  * Created by fredrikjohansson on 15-06-11.

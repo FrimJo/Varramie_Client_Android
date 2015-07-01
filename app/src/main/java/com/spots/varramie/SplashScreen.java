@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import android.os.Vibrator;
@@ -13,8 +14,12 @@ import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.facebook.FacebookActivity;
+import com.spots.facebook.MainFragment;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.UUID;
 
 /**
  * Created by fredrikjohansson on 15-06-15.
@@ -106,13 +111,27 @@ public class SplashScreen extends Activity {
         Intent startService = new Intent(getBaseContext(), UDP.class);
         byte[] byteAddress;
         try {
-
+            String userId;
+            if(MainFragment.mAccessToken != null) {
+                userId = MainFragment.mAccessToken.getUserId();
+            }else{
+                // Check if there is a stored UUID
+                SharedPreferences preferences = getSharedPreferences("USER_PREFERENCES", 0);
+                userId = preferences.getString("UUID", "");
+                if(userId.equals("")){
+                    SharedPreferences.Editor editor = preferences.edit();
+                    userId = UUID.randomUUID().toString();
+                    editor.putString("UUID" , userId);
+                    editor.commit();
+                }
+            }
             //byteAddress = InetAddress.getByName("172.20.10.2").getAddress();  //My iPhone address
-            byteAddress = InetAddress.getByName("194.165.237.13").getAddress();  //Work address
-            //byteAddress = InetAddress.getByName("192.168.0.3").getAddress(); //Home address
+            //byteAddress = InetAddress.getByName("194.165.237.13").getAddress();  //Work address
+            byteAddress = InetAddress.getByName("192.168.0.3").getAddress(); //Home address
             //byteAddress = InetAddress.getByName("130.239.237.19").getAddress(); //My mac at work address
             startService.putExtra("SERVER_IP_BYTE", byteAddress);
             startService.putExtra("SERVER_PORT_INT", 8001);
+            startService.putExtra("USER_ID_STRING", userId);
             startService(startService);
         } catch (UnknownHostException e) {
             Toast.makeText(getBaseContext(), "Could not start network service, pleae restart the app.", Toast.LENGTH_LONG).show();

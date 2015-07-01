@@ -119,7 +119,7 @@ public enum Client {
         latestTouch = new TouchState(action, position_norm, pressure, velocity);
     }
 
-    public void receiveTouch(Vec2 position_norm, float pressure, int id, byte action, Vec2 velocity){
+    public void receiveTouch(Vec2 position_norm, float pressure, String id, byte action, Vec2 velocity){
         if(id == ClusterManager.myClusterId)
             return;
 
@@ -141,9 +141,6 @@ public enum Client {
             ClusterManager.allClustersIsCreating.put(id, false);
         }
 
-
-
-
         switch (action) {
             case OpCodes.ACTION_DOWN:
                 c.push(position_screen, pressure);
@@ -159,8 +156,6 @@ public enum Client {
             default:
                 break;
         }
-
-
 
 		/*if(mySpot.isActive()){
 			TouchState t = mySpot.getState();

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                xmlns:tools="http://schemas.android.com/tools"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                tools:context=".MainFragment">
+
+    <!--<com.facebook.login.widget.LoginButton
+        android:id="@+id/login_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:layout_marginTop="300dp"
+        android:layout_marginBottom="30dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:text="Click"
+        android:id="@+id/no_facebook_first"
+        android:layout_marginTop="60dp"
+        android:layout_marginRight="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_alignTop="@+id/login_button"
+        android:layout_toLeftOf="@+id/no_facebook_button"
+        android:layout_toStartOf="@+id/no_facebook_button"
+        android:visible="false"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:text="to continue without facebook"
+        android:id="@+id/no_facebook_second"
+        android:layout_marginLeft="10dp"
+        android:layout_marginStart="10dp"
+        android:layout_alignTop="@+id/no_facebook_first"
+        android:layout_alignLeft="@+id/login_button"
+        android:layout_alignStart="@+id/login_button"
+        android:visible="false"/>
+
+    <Button
+        style="@style/NoFacebookButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="her"
+        android:id="@+id/no_facebook_button"
+        android:background="?android:attr/selectableItemBackground"
+        android:layout_alignBaseline="@+id/no_facebook_second"
+        android:layout_alignBottom="@+id/no_facebook_second"
+        android:layout_toLeftOf="@+id/no_facebook_second"
+        android:layout_toStartOf="@+id/no_facebook_second"
+        android:visible="false"/>-->
+    <ImageView
+        android:id="@+id/imgLogo"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bubble_scape_splash"
+        android:gravity="center_vertical"
+        android:layout_centerVertical="true"
+        android:layout_centerInParent="true"
+        android:cropToPadding="false" />
+
+
+</RelativeLayout>

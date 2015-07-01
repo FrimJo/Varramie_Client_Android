@@ -4,6 +4,8 @@ import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+
+import com.facebook.appevents.AppEventsLogger;
 import com.spots.liquidfun.ClusterManager;
 import org.jbox2d.common.Vec2;
 
@@ -36,7 +38,6 @@ public class OpenGLSurfaceView extends GLSurfaceView {
     public OpenGLSurfaceView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-
         // Create an OpenGL ES 2.0 context
         setEGLContextClientVersion(2);
 
@@ -51,6 +52,20 @@ public class OpenGLSurfaceView extends GLSurfaceView {
 
         // make sure we get key events
         setFocusable(true);
+    }
+
+    @Override
+    public void onResume(){
+        super.onResume();
+        // Logs 'install' and 'app activate' App Events.
+        AppEventsLogger.activateApp(this.getContext());
+    }
+
+    @Override
+    public void onPause(){
+        super.onPause();
+        // Logs 'app deactivate' App Event.
+        AppEventsLogger.deactivateApp(this.getContext());
     }
 
     @Override

@@ -10,18 +10,20 @@ import org.jbox2d.particle.ParticleGroupDef;
 import org.jbox2d.particle.ParticleGroupType;
 import org.jbox2d.particle.ParticleType;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Created by fredrikjohansson on 15-06-23.
  */
 public class ClusterManager {
 
     public static Cluster myCluster;
-    public static int myClusterId;
+    public static String myClusterId = "NOTHING";
     public static boolean myClusterIsCreating = false;
-    public static final SparseArray<Cluster> allClusters = new SparseArray<>();
-    public static final SparseArray<Boolean> allClustersIsCreating = new SparseArray<>();
+    public static final ConcurrentHashMap<String, Cluster> allClusters = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, Boolean> allClustersIsCreating = new ConcurrentHashMap<>();
 
-    public static void createNewCluster(int id){
+    public static void createNewCluster(final String id){
 
         // Create the body
         CircleShape partShape = new CircleShape();
@@ -37,7 +39,7 @@ public class ClusterManager {
         Physics.requestGroupCreation(new GroupQueueDef(id, gd));
     }
 
-    public static void createNewCluster(int id, Vec2 position_screen){
+    public static void createNewCluster(final String id, Vec2 position_screen){
         // Create the body
         CircleShape partShape = new CircleShape();
         partShape.setRadius(Renderer.screenToWorld(Physics.GROUP_RADIUS));  // Sets the size of the cluster

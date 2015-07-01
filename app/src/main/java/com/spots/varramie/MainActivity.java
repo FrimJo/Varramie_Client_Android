@@ -7,24 +7,24 @@ import android.app.TaskStackBuilder;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.net.wifi.WifiManager;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
-import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v4.app.NotificationCompat;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.Toast;
+import android.view.View;
 
-import com.spots.liquidfun.Renderer;
+import com.facebook.AccessToken;
+import com.facebook.AccessTokenTracker;
+import com.facebook.CallbackManager;
+import com.facebook.Profile;
+import com.facebook.ProfileTracker;
+import com.spots.depricated.Spot;
+import com.spots.facebook.MainFragment;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.concurrent.LinkedBlockingDeque;
 /*import com.google.android.vending.licensing.LicenseChecker;
 import com.google.android.vending.licensing.LicenseCheckerCallback;
@@ -39,10 +39,10 @@ public class MainActivity extends ActionBarActivity{
     public static Notification usrConnectedNotification;
     public static LinkedBlockingDeque<Notification> notificationsQ = new LinkedBlockingDeque<>();
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         mGLView = new OpenGLSurfaceView(this);
         setContentView(mGLView);
 
@@ -96,11 +96,20 @@ public class MainActivity extends ActionBarActivity{
 
     }
 
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
 
         super.onCreateOptionsMenu(menu);
-        getMenuInflater().inflate(R.menu.main, menu);
+        getMenuInflater().inflate(R.menu.main, menu);//invalidateOptionsMenu();
+        MenuItem item;
+        if(MainFragment.mAccessToken != null)
+            item = menu.findItem(R.id.action_logout);
+        else
+            item = menu.findItem(R.id.action_use_facebook);
+        item.setVisible(true);
+
+
         return true;
     }
 
@@ -114,14 +123,20 @@ public class MainActivity extends ActionBarActivity{
             case R.id.action_settings:
                 startActivityForResult(new Intent(this, EmptyActivity.class), RESULT_OK);
                 return true;
-            case R.id.action_exit:
+            case R.id.action_logout:
+                AccessToken.setCurrentAccessToken(null);
                 stopService(new Intent(".UDP"));
+                startActivityForResult(new Intent(this, com.spots.facebook.MainActivity.class), RESULT_OK);
+                finish();
+                return true;
+            case R.id.action_use_facebook:
+                stopService(new Intent(".UDP"));
+                startActivityForResult(new Intent(this, com.spots.facebook.MainActivity.class).putExtra("FROM_APP", true), RESULT_OK);
                 finish();
                 return true;
             default:
                 break;
         }
-
         return super.onOptionsItemSelected(item);
     }
 

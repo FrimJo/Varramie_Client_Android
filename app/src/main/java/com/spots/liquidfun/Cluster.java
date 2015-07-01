@@ -26,15 +26,12 @@ import javax.microedition.khronos.opengles.GL10;
  */
 public class Cluster {
 
-    private final int id;
+    private final String id;
     private ParticleGroup _group = null;
 
     public Color3 color = new Color3(0, 0, 255);
 
-    protected Vec2 world_position = new Vec2(0.0f, 0.0f);
     protected float rotation = 0.0f;
-
-    //private Particle[] particles;
 
     private Vec2[] cords;
     private Vec2[] controllCords;
@@ -44,9 +41,7 @@ public class Cluster {
     private Particle[] particles;
 
 
-    public Cluster(ParticleGroup grp, int _id){
-
-
+    public Cluster(ParticleGroup grp, String _id){
         id = _id;
         ClusterManager.allClusters.put(_id, this);
         _group = grp;
@@ -59,64 +54,7 @@ public class Cluster {
             particles[i] = new Particle(Physics.PARTICLE_RADIUS);
         }
 
-        setVertices();
-
-
-
-/*
-        //particles = new Particle[grp.getParticleCount()];
-        Vec2 center = _group.getCenter();
-        Vec2 pos;
-        float dx, dy, alpha;
-        double val, radius;
-
-        for(int i = 0; i < particles.length; i++){
-            pos = Renderer.worldToScreen(cords[i]);
-            dx = Renderer.screenToWorld(pos.x) - center.x;
-            dy = Renderer.screenToWorld(pos.y) - center.y;
-            val = Math.pow(dx,2.0) + Math.pow(dy,2.0);
-            radius = Math.pow(Renderer.screenToWorld(Physics.GROUP_RADIUS) - Renderer.screenToWorld(Physics.PARTICLE_RADIUS)*3.0, 2.0);
-            alpha = (float) (1.0 - val/radius);
-
-
-            particles[i] = new Particle(Physics.PARTICLE_RADIUS);
-
-
-            if(val < Math.pow(Renderer.screenToWorld(Physics.GROUP_RADIUS), 2.0) / 2.0){
-
-            }
-
-
-            if(val > radius)
-                particles[i].color = new Color3(0, 0, 0);
-            else
-                particles[i].color = new Color3(colors[i].r & 0xFF, colors[i].g & 0xFF, colors[i].b & 0xFF);
-            particles[i].position = pos;
-            particles[i].rotation = _group.getAngle() * 57.2957795786f;
-            particles[i].alpha = alpha;
-
-        }*/
-
-    }
-
-    public void draw(GL10 unused) {
-
-        if (particles.length != cords.length) return;
-
-
-        // Update local data from physics engine
-        rotation = _group.getAngle() * 57.2957795786f;
-        float particle_radius = Renderer.worldToScreen(Physics.physicsWorld.getParticleRadius());
-
-        for(int i = 0; i < particles.length; i++){
-            Vec2 com_screen_pos = Renderer.worldToScreen(cords[i]);
-
-            particles[i].position = com_screen_pos;
-            particles[i].rotation = rotation;
-            particles[i].size = particle_radius;
-            particles[i].draw(unused);
-        }
-
+        setController();
 
     }
 
@@ -135,15 +73,15 @@ public class Cluster {
 
     public void push(Vec2 position_screen, float size){
         Vec2 position_world = Renderer.screenToWorld(position_screen);
-        //Vec2 dif = position_world.subLocal(_group.getCenter()).mul(1.0f / -10.0f);
 
-        if(controllVelocity.length != controllCords.length) return;
+        Vec2 position = _group.getCenter();
+        Vec2 dif = position.sub(position_world).mulLocal(-3.0f);
 
         for(int i = 0; i < controllVelocity.length; i++){
-            Vec2 position = controllCords[i];
-            Vec2 dif = position.sub(position_world).mulLocal(-3.0f);
-            controllVelocity[i].set(dif);
+            controllVelocity[i].addLocal(dif);
         }
+
+
     }
 
     public void release(Vec2 _velocity, float size){
@@ -158,49 +96,30 @@ public class Cluster {
         _group = null;
     }
 
-    public int getId(){
+    public String getId(){
         return id;
     }
 
-
-    /**
-     * The drawing of the cluster below
-     *
-     *
-     * */
-    private float[] vertices;
-
-    private FloatBuffer vertBuffer;
-
-    private List<Integer> outlineIndexL;
-    private float[] outline_vertices;
-
-    private void setVertices(){
+    private void setController(){
 
         float dx, dy;
         Vec2 pos, center = _group.getCenter();
-        double hyp, radius = Math.pow(Renderer.screenToWorld(Physics.GROUP_RADIUS) - Renderer.screenToWorld(Physics.PARTICLE_RADIUS)*1.5f, 2.0),
-                radius_controll = Math.pow(Renderer.screenToWorld(Physics.GROUP_RADIUS / 2.0f), 2.0);
-
+        double hyp, radius_controll = Math.pow(Renderer.screenToWorld(Physics.GROUP_RADIUS / 1.5f), 2.0);
 
         List<Vec2> controllVectorL = new LinkedList<>();
         List<Vec2> controllVelocityL = new LinkedList<>();
 
-        // Goes through all the particle coordinates in the group
-        // and saves the indexes of the ones in the outer line.
-        outlineIndexL = new LinkedList<>();
+        //outlineCordsL.add(center);
+
         for(int i = 0; i < cords.length; i++){
             pos = cords[i];
             dx = pos.x - center.x;
             dy = pos.y - center.y;
             hyp = Math.pow(dx,2.0) + Math.pow(dy,2.0);
 
-            //if(hyp > radius){
             if(hyp < radius_controll){
                 controllVectorL.add(cords[i]);
                 controllVelocityL.add(velocity[i]);
-            }else{
-                outlineIndexL.add(i);
             }
 
         }
@@ -210,60 +129,22 @@ public class Cluster {
         controllVelocity = new Vec2[controllVelocityL.size()];
         controllVelocityL.toArray(controllVelocity);
 
-
-        // Creates the vertices array that will contain all outline vertices
-        // and the center vertex of the group
-        outline_vertices = new float[(outlineIndexL.size() /*+ 1*/) * 3];
-
-        // Refresh!
-        refreshVertices();
-
     }
 
-    private void refreshVertices() {
-        Vec2 center = Renderer.worldToScreen(_group.getCenter());
+    public void draw(GL10 unused) {
 
-        // Populates the vertices array with all outline vertices
-        // and the center vertex of the group using the indexes of
-        // the out line index list
-        /*outline_vertices[0] = center.x;
-        outline_vertices[1] = center.y;
-        outline_vertices[2] = 0.0f;*/
-        int c = 0; //c=3
-        float length = (outline_vertices.length)/2.0f;
-        //float val = length % 3.0f;
-        length += (length % 3.0f);
-        int dist = Math.round(length);
+        // Update local data from physics engine
+        rotation = _group.getAngle() * 57.2957795786f;
+        float particle_radius = Renderer.worldToScreen(Physics.physicsWorld.getParticleRadius());
 
-        for(int i = 0; i < outlineIndexL.size(); ){
-            Vec2 coord = Renderer.worldToScreen(cords[outlineIndexL.get(i++).intValue()]);
-            outline_vertices[c] =   coord.x;
-            outline_vertices[c+1] =   coord.y;
-            outline_vertices[c+2] =   0.0f;
+        for(int i = 0; i < particles.length; i++){
+            Vec2 com_screen_pos = Renderer.worldToScreen(cords[i]);
 
-            if(i >= outlineIndexL.size()) break;
-
-            coord = Renderer.worldToScreen(cords[outlineIndexL.get(i++).intValue()]);
-            outline_vertices[dist + c] =   coord.x;
-            outline_vertices[dist + c+1] =   coord.y;
-            outline_vertices[dist + c+2] =   0.0f;
-            c+=3;
+            particles[i].position = com_screen_pos;
+            particles[i].rotation = rotation;
+            particles[i].size = particle_radius;
+            particles[i].draw(unused);
         }
-
-        // Update!
-        updateVertices(outline_vertices);
-    }
-
-    public void updateVertices(float[] _vertices) {
-
-        vertices = _vertices;
-
-        // Allocate a new byte buffer to move the vertices into a FloatBuffer
-        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(vertices.length * 4);
-        byteBuffer.order(ByteOrder.nativeOrder());
-        vertBuffer = byteBuffer.asFloatBuffer();
-        vertBuffer.put(vertices);
-        vertBuffer.position(0);
     }
 
 }

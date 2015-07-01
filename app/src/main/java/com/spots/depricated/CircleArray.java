@@ -1,4 +1,4 @@
-package com.spots.varramie;
+package com.spots.depricated;
 
 import java.lang.reflect.Array;
 import java.util.Iterator;
