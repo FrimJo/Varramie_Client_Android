@@ -1,10 +1,14 @@
 package com.spots.varramie;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
+import android.view.View;
+
+import com.spots.depricated.Spot;
 
 public class EmptyActivity extends PreferenceActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
 
@@ -28,16 +32,24 @@ public class EmptyActivity extends PreferenceActivity implements SharedPreferenc
 			
 		}
 	}
-	
-	@Override
+
+    @Override
+    public void onBackPressed() {
+        finish();
+        Intent intent = new Intent(getApplication().getApplicationContext(), MainActivity.class);
+        startActivity(intent);
+    }
+
+
+    @Override
 	public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-		switch (key) {
+		/*switch (key) {
 		case "hide_others":
-			Spot.setIsHidden(sharedPreferences.getBoolean(key, false));
+			Spot.SpotManager.setIsHidden(sharedPreferences.getBoolean(key, false));
 
 		default:
 			break;
-		}
+		}*/
 		
 	}
 }

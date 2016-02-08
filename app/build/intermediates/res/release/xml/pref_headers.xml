@@ -1,0 +1,16 @@
+<preference-headers xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <!-- These settings headers are only used on tablets. -->
+
+    <header
+        android:fragment="com.spots.varramie.SettingsActivity$GeneralPreferenceFragment"
+        android:title="@string/pref_header_general" />
+    <header
+        android:fragment="com.spots.varramie.SettingsActivity$NotificationPreferenceFragment"
+        android:title="@string/pref_header_notifications" />
+    <header
+        android:fragment="com.spots.varramie.SettingsActivity$DataSyncPreferenceFragment"
+        android:title="@string/pref_header_data_sync" />
+
+</preference-headers>
+<!-- From: file:/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/src/main/res/xml/pref_headers.xml -->

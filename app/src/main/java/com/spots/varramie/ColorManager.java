@@ -14,7 +14,7 @@ public class ColorManager {
 	}*/
 	
 	public static float[] getRealRandomColor(){
-		return new float[] { getRandomNumber(), getRandomNumber(), getRandomNumber(), 1.0f };
+		return new float[] { getRandomNumber(), getRandomNumber(), getRandomNumber(), 0.2f };
 	}
 	
 	/*public static int getRealRandomColorWidthAlpha(int aplpha){

@@ -3,12 +3,16 @@
 	<PreferenceCategory 
 	    android:title="Varramie Settings">
 	    
-	    <CheckBoxPreference 
+	    <!--<CheckBoxPreference
 	        android:key="hide_others"
 	        android:title="Hide others"
 	        android:summary="Tick to hide others using the app."
-	        android:defaultValue="false"/>
-	    
+	        android:defaultValue="false"/>-->
+        <CheckBoxPreference
+            android:key="vibrate_collide"
+            android:title="Vibrate on collision"
+            android:summary="Tick to have the device vibrate on collision."
+            android:defaultValue="false"/>
 	    
 	</PreferenceCategory>    
 

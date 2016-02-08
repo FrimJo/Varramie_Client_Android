@@ -1,123 +1,133 @@
 package com.spots.varramie;
 
 import android.graphics.Point;
+import android.text.method.Touch;
+import android.util.Log;
 import android.view.MotionEvent;
+
+import com.spots.liquidfun.Cluster;
+import com.spots.liquidfun.ClusterManager;
+import com.spots.liquidfun.Physics;
+import com.spots.liquidfun.Renderer;
+
+import org.jbox2d.common.Vec2;
+
 import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 
 
-/**
- * The main class of ChattApp 2.0 Client side. It uses the
- * Singleton design pattern. Controls all the connection
- * from the server to different connected clients.
- * @author Fredrik Johansson
- * @author Mattias Edin 
- */
 public enum Client {
-	INSTANCE;
+    INSTANCE;
 
-	private IGUI					gui;
-	private final TouchState		touchState = new TouchState(OpCodes.ACTION_UP, (short) 0, (short) 0);
-	
-	/**
-	 * The constructor for class Client. Being a singleton implies that
-	 * the constructor is empty because object wont and can't be
-	 * generated. This class is initialized from main in the
-	 * init method and used through Client.INSTANCE.[method].
-	 */
-	Client(){ }
-	
-	/**
-	 * This is the initialize method, it uses a GUI and
-	 * setup the connection towards the name server (DNS).
-	 * @param gui The GUI to be used with the client, needs to implement GUI_Interface_Client.java.
-	 */
-	public void init(final IGUI gui){
-		this.gui = gui;
-		println("Initiating the client . . .");
-	}
+    private IGUI					gui;
+    private final LinkedBlockingDeque<Object> touchStates = new LinkedBlockingDeque<>();
+    private final ConcurrentHashMap<String, TouchState> touchM = new ConcurrentHashMap<>();
+    public Thread sender;
+    public boolean running = true;
+    private boolean vibrate_collide;
+    //private final TouchState		touchState = new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.35f);
 
-	public void sendTouchAction(final float x, final float y, byte action) {
-		synchronized (this.touchState){
-			this.touchState.setState(x, y, action);
-		}
+    /**
+     * The constructor for class Client. Being a singleton implies that
+     * the constructor is empty because object wont and can't be
+     * generated. This class is initialized from main in the
+     * init method and used through Client.INSTANCE.[method].
+     */
+    Client(){ }
 
-		// Set my spot status
-		switch (action) {
-			case OpCodes.ACTION_DOWN:
-				Spot.activateMySpot(x, y);
-				//connectedServer.interruptSenderThread();
-				break;
-			case OpCodes.ACTION_MOVE:
-				Spot.updateMySpot(x, y);
 
-				break;
-			case OpCodes.ACTION_UP:
-				Spot.deactivateMySpot(x, y);
-				break;
+    public void init(final IGUI gui){
+        this.gui = gui;
+        //touchStates.add(new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.32f));
+        println("Initiating the client . . .");
+        sender = new Thread(){
 
-			default:
-				break;
-		}
-	}
+            @Override
+            public void run(){
+                MainActivity.threads++;
 
-	public void receiveTouch(float x, float y, int id, int action){
-		Spot s = Spot.getSpotAt(id);
+                while(running){
 
-		if(s == null)
-			return;
+                    try {
+                        if(touchM.containsKey(ClusterManager.myClusterId)){
+                            TouchState ts = touchM.get(ClusterManager.myClusterId);
+                            touchStates.put(ts);
+                            if(ts.getState() == OpCodes.ACTION_UP)
+                                sleep(1000);
+                            else
+                                sleep(32);
+                        }else{
+                            touchStates.put(new TouchState(OpCodes.ACTION_UP, new Vec2(0.0f, 0.0f), 0.0f, new Vec2(0.0f, 0.0f), ClusterManager.myClusterId));
+                            sleep(1000);
+                        }
+                    }catch(InterruptedException e){
 
-		switch (action) {
-			case OpCodes.ACTION_DOWN:
-				s.activate(x, y);
-				break;
-			case OpCodes.ACTION_MOVE:
-				s.update(x, y);
-				break;
-			case OpCodes.ACTION_UP:
-				s.deactivate(x ,y);
-				break;
+                    }
+                }
+                MainActivity.threads--;
+            }
+        };
 
-			default:
-				break;
-		}
+        if(!touchM.isEmpty()){
+            touchM.clear();
+        }
+        Physics.clearClients();
+    }
 
-		Spot mySpot = Spot.getMySpot();
-		if(mySpot.isActive()){
+    public Set<Map.Entry<String, TouchState>> getTouchMapValues(){
+        return touchM.entrySet();
+    }
 
-			float my_x = mySpot._dx;
-			float my_y = mySpot._dy;
-			if( (my_x > x-160.0f && my_x < x+160.0f) && (my_y > y-160.0f && my_y < y+160.0f ) ){
-				this.gui.onColide();
-				println("Touch!");	
-			}
-		}
-	}
+    public void sendTouchAction(final Vec2 position_screen, final byte action, final float pressure, final Vec2 velocity) {
 
-	/**
-	 * Signals the client to shut down and disconnect from all servers.
-	 * @throws IOException Signals that an I/O exception of some sort has occurred. This class is the general class of exceptions produced by failed or interrupted I/O operations.
-	 */
-	public void shutDown() throws IOException{
-		for(int i = 0; i < Spot.sizeOfSpotsList(); i++){
-	    	Spot s = Spot.getSpotAt(i);
-	    	s.destroy();
-	    }
-	}
+        touchM.put(ClusterManager.myClusterId, new TouchState(action, position_screen, pressure, velocity, ClusterManager.myClusterId));
 
-	/**
-	 * Tells the GUI to print a string to the user of the interface. 
-	 * This method invokes the runLater method of the GUI, and sends
-	 * a new thread as a parameter. The GUI then runs the run
-	 * method when possible.
-	 * @param str The string to print.
-	 */
-	public synchronized void println(final String str){
-		this.gui.println(str);
-	}
 
-	public TouchState getTouchState(){
-		synchronized (this.touchState){
-			return TouchState.cloneState(this.touchState);
-		}
-	}
+        sender.interrupt();
+    }
+
+    public void receiveTouch(Vec2 position_norm, float pressure, String id, byte action, Vec2 velocity){
+        Vec2 position_screen = new Vec2(position_norm.x * Renderer.screenW, position_norm.y * Renderer.screenH);
+
+        touchM.put(id, new TouchState(action, position_screen, pressure, velocity, id));
+
+    }
+
+    /**
+     * Tells the GUI to print a string to the user of the interface.
+     * This method invokes the runLater method of the GUI, and sends
+     * a new thread as a parameter. The GUI then runs the run
+     * method when possible.
+     * @param str The string to print.
+     */
+    public synchronized void println(final String str){
+        if(this.gui != null)
+            this.gui.println(str);
+    }
+
+    public void addPackage(Object o) throws InterruptedException {
+        touchStates.put(o);
+    }
+
+    public Object takePackage() throws InterruptedException {
+        return touchStates.take();
+    }
+
+    public void ressetTouch(final String id){
+        touchM.remove(id);
+    }
+
+    public void onColide(){
+        this.gui.onColide();
+    }
+
+    public void setVibrateOnCollide(boolean vibrate){
+        vibrate_collide = vibrate;
+    }
 }

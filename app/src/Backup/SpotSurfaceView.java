@@ -11,7 +11,7 @@ import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-import java.io.IOException;
+import com.spots.depricated.Spot;
 
 public class SpotSurfaceView extends SurfaceView implements SurfaceHolder.Callback{
 	private SurfaceHolder sh;
