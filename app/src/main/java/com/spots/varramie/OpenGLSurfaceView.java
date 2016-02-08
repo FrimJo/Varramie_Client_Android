@@ -4,9 +4,12 @@ import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import android.view.View;
 
 import com.facebook.appevents.AppEventsLogger;
 import com.spots.liquidfun.ClusterManager;
+import com.spots.liquidfun.Physics;
+
 import org.jbox2d.common.Vec2;
 
 /**
@@ -76,60 +79,37 @@ public class OpenGLSurfaceView extends GLSurfaceView {
     private Vec2 touch =  new Vec2(0.0f,0.0f);
     private Vec2 event_touch = new Vec2(0.0f,0.0f);
     private Vec2 velocity = new Vec2(0.0f, 0.0f);
+    private long startTime = System.currentTimeMillis();
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        long deltaTime = System.currentTimeMillis() - startTime;
+        startTime = System.currentTimeMillis();
         event_touch.set(event.getX(), event.getY());
 
         if(touch.x != event_touch.x || touch.y != event_touch.y){
-            velocity.set(event_touch.sub(touch)).mulLocal(2.0f);
+            Vec2 deltaPosition = event_touch.sub(touch);
+            velocity.set(deltaPosition.mulLocal(1000.0f / deltaTime));
             touch.set(event_touch);
         }
         final float size = event.getSize();
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-
-                queueEvent(new Runnable() {
-                    @Override public void run() {
-                        Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_DOWN, size, velocity);
-                    }});
+                Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_DOWN, size, velocity);
                 return true;
             case MotionEvent.ACTION_UP:
-
                 this.performClick();
-                queueEvent(new Runnable() {
-                    @Override
-                    public void run() {
-                        Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_UP, size, velocity);
-                    }
-                });
+                Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_UP, size, velocity);
                 return true;
             case MotionEvent.ACTION_MOVE:
-
-                queueEvent(new Runnable() {
-                    @Override
-                    public void run() {
-                        Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_MOVE, size, velocity);
-                    }
-                });
+                Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_MOVE, size, velocity);
                 return true;
             case MotionEvent.ACTION_OUTSIDE:
-
-                queueEvent(new Runnable() {
-                    @Override
-                    public void run() {
-                        Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_UP, size, velocity);
-                    }
-                });
+                Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_UP, size, velocity);
                 return true;
             case MotionEvent.ACTION_CANCEL:
-                queueEvent(new Runnable() {
-                    @Override
-                    public void run() {
-                        Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_UP, size, velocity);
-                    }
-                });
+                Client.INSTANCE.sendTouchAction(event_touch, OpCodes.ACTION_UP, size, velocity);
                 return true;
             default:
                 return super.onTouchEvent(event);

@@ -2,32 +2,35 @@ package com.spots.varramie;
 
 import android.graphics.Point;
 import android.text.method.Touch;
+import android.util.Log;
 import android.view.MotionEvent;
 
 import com.spots.liquidfun.Cluster;
 import com.spots.liquidfun.ClusterManager;
+import com.spots.liquidfun.Physics;
 import com.spots.liquidfun.Renderer;
 
 import org.jbox2d.common.Vec2;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 
 
-/**
- * The main class of ChattApp 2.0 Client side. It uses the
- * Singleton design pattern. Controls all the connection
- * from the server to different connected clients.
- * @author Fredrik Johansson
- * @author Mattias Edin 
- */
 public enum Client {
     INSTANCE;
 
     private IGUI					gui;
-    private final LinkedBlockingDeque<TouchState> touchStates = new LinkedBlockingDeque<>();
-    private Thread sender;
+    private final LinkedBlockingDeque<Object> touchStates = new LinkedBlockingDeque<>();
+    private final ConcurrentHashMap<String, TouchState> touchM = new ConcurrentHashMap<>();
+    public Thread sender;
     public boolean running = true;
+    private boolean vibrate_collide;
     //private final TouchState		touchState = new TouchState(OpCodes.ACTION_UP, 0.0f, 0.0f, 0.35f);
 
     /**
@@ -47,135 +50,53 @@ public enum Client {
 
             @Override
             public void run(){
+                MainActivity.threads++;
 
                 while(running){
-                    if(latestTouch != null){
-                        break;
-                    }
-                    try{
-                        sleep(10);
-                    } catch (InterruptedException e) {
 
-                    }
-                }
-                long time;
-                TouchState ts;
-                while(running){
                     try {
-                        ts = new TouchState(latestTouch);
-                        if(ClusterManager.myCluster != null){
-                            time = 10;
+                        if(touchM.containsKey(ClusterManager.myClusterId)){
+                            TouchState ts = touchM.get(ClusterManager.myClusterId);
+                            touchStates.put(ts);
+                            if(ts.getState() == OpCodes.ACTION_UP)
+                                sleep(1000);
+                            else
+                                sleep(32);
                         }else{
-                            ts.setState(OpCodes.ACTION_UP);
-                            time = 100;
+                            touchStates.put(new TouchState(OpCodes.ACTION_UP, new Vec2(0.0f, 0.0f), 0.0f, new Vec2(0.0f, 0.0f), ClusterManager.myClusterId));
+                            sleep(1000);
                         }
-                        touchStates.add(ts);
-                        sleep(time);
-                    } catch (InterruptedException e) {
+                    }catch(InterruptedException e){
 
                     }
                 }
-
+                MainActivity.threads--;
             }
         };
-        sender.start();
+
+        if(!touchM.isEmpty()){
+            touchM.clear();
+        }
+        Physics.clearClients();
     }
 
-    private TouchState latestTouch;
+    public Set<Map.Entry<String, TouchState>> getTouchMapValues(){
+        return touchM.entrySet();
+    }
 
     public void sendTouchAction(final Vec2 position_screen, final byte action, final float pressure, final Vec2 velocity) {
+
+        touchM.put(ClusterManager.myClusterId, new TouchState(action, position_screen, pressure, velocity, ClusterManager.myClusterId));
+
+
         sender.interrupt();
-
-        if(ClusterManager.myCluster == null){
-            if(ClusterManager.myClusterIsCreating) return;
-            ClusterManager.createNewCluster(ClusterManager.myClusterId, position_screen);
-            ClusterManager.myClusterIsCreating = true;
-            return;
-        }else if(ClusterManager.myClusterIsCreating){
-            ClusterManager.myClusterIsCreating = false;
-        }
-
-
-        // Set my spot status
-        switch (action) {
-            case OpCodes.ACTION_DOWN:
-                ClusterManager.myCluster.push(position_screen, pressure);
-                break;
-            case OpCodes.ACTION_MOVE:
-                ClusterManager.myCluster.push(position_screen, pressure);
-                break;
-            case OpCodes.ACTION_UP:
-                ClusterManager.myCluster.push(position_screen, pressure);
-                ClusterManager.myCluster.destroyPhysicsGroup();
-                ClusterManager.myCluster = null;
-                break;
-            default:
-                break;
-        }
-
-        Vec2 position_norm = new Vec2(position_screen.x / Renderer.screenW, position_screen.y / Renderer.screenH);
-
-        //touchStates.add(new TouchState(action, position_norm, pressure, velocity));
-        latestTouch = new TouchState(action, position_norm, pressure, velocity);
     }
 
     public void receiveTouch(Vec2 position_norm, float pressure, String id, byte action, Vec2 velocity){
-        if(id == ClusterManager.myClusterId)
-            return;
-
-        Cluster c = ClusterManager.allClusters.get(id);
-
-        // Convert normalized cordinates to screen cordinates
         Vec2 position_screen = new Vec2(position_norm.x * Renderer.screenW, position_norm.y * Renderer.screenH);
 
-        Boolean isCreating = ClusterManager.allClustersIsCreating.get(id);
+        touchM.put(id, new TouchState(action, position_screen, pressure, velocity, id));
 
-        if(c == null){
-            if(isCreating == null){
-                ClusterManager.allClustersIsCreating.put(id, true);
-                ClusterManager.createNewCluster(id, position_screen);
-                MainActivity.notfiyUserConnected();
-            }
-            return;
-        }else if(isCreating.booleanValue()){
-            ClusterManager.allClustersIsCreating.put(id, false);
-        }
-
-        switch (action) {
-            case OpCodes.ACTION_DOWN:
-                c.push(position_screen, pressure);
-                break;
-            case OpCodes.ACTION_MOVE:
-                c.push(position_screen, pressure);
-                break;
-            case OpCodes.ACTION_UP:
-                c.destroyPhysicsGroup();
-                ClusterManager.allClustersIsCreating.remove(id);
-                break;
-
-            default:
-                break;
-        }
-
-		/*if(mySpot.isActive()){
-			TouchState t = mySpot.getState();
-			float my_x = t.getX();
-			float my_y = t.getY();
-			float my_pressure = t.getPressure();
-
-			float dx = my_x - x;
-			float dy = my_y - y;
-			double s_pow = Math.pow(dx,2.0) + Math.pow(dy,2.0);
-
-			if(s_pow <= Math.pow((my_pressure + pressure)*0.05f, 2.0)){
-				this.gui.onColide();
-				println("Touch!");	
-			}
-		}*/
-    }
-
-    public void shutDown(){
-        running = false;
     }
 
     /**
@@ -190,7 +111,23 @@ public enum Client {
             this.gui.println(str);
     }
 
-    public TouchState takeTouchState() throws InterruptedException {
+    public void addPackage(Object o) throws InterruptedException {
+        touchStates.put(o);
+    }
+
+    public Object takePackage() throws InterruptedException {
         return touchStates.take();
+    }
+
+    public void ressetTouch(final String id){
+        touchM.remove(id);
+    }
+
+    public void onColide(){
+        this.gui.onColide();
+    }
+
+    public void setVibrateOnCollide(boolean vibrate){
+        vibrate_collide = vibrate;
     }
 }

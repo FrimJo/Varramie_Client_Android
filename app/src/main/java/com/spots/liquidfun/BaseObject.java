@@ -118,7 +118,7 @@ public class BaseObject {
         bd.position = Renderer.screenToWorld(position);
 
         // Add to physics world body creation queue, will be finalized when possible
-        Physics.requestBodyCreation(new BodyQueueDef(id, bd));
+        //Physics.requestBodyCreation(new BodyQueueDef(id, bd));
     }
 
     public void destroyPhysicsBody() {
@@ -127,7 +127,7 @@ public class BaseObject {
             return;
         }
 
-        Physics.destroyBody(body);
+        //Physics.destroyBody(body);
         body = null;
     }
 

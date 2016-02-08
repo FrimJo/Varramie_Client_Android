@@ -1,8 +1,7 @@
 package com.spots.varramie;
 
-
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-
 
 public class PDU_Factory {
 
@@ -28,10 +27,18 @@ public class PDU_Factory {
         return bytes;
     }
 
-    public static byte[] joinNoId(){
-        ByteBuffer bb = ByteBuffer.allocate(2);
-        bb.put(OpCodes.JOIN_NO_ID);
+    public static byte[] collision(final float x, final float y, String idA, String idB){
+        final byte[] idA_byte = idA.getBytes();
+        final byte[] idB_byte = idB.getBytes();
+        final ByteBuffer bb = ByteBuffer.allocate(12 + idA_byte.length + idB_byte.length );
+        bb.put(OpCodes.COLLISION);
         bb.put((byte) '\0');
+        bb.put((byte) idA_byte.length);
+        bb.put((byte) idB_byte.length);
+        bb.put(idA_byte);
+        bb.put(idB_byte);
+        bb.putFloat(x);
+        bb.putFloat(y);
         byte[] bytes = bb.array();
         bb.put(1, Checksum.calc(bytes, bytes.length));
         return bb.array();
@@ -73,10 +80,13 @@ public class PDU_Factory {
         return bb.array();
     }
 
-    public static byte[] notreg(){
-        ByteBuffer bb = ByteBuffer.allocate(2);
-        bb.put(OpCodes.NOTREG);
+    public static byte[] poke(final String poke_id){
+        final byte[] poke_id_bytes = poke_id.getBytes();
+        final ByteBuffer bb = ByteBuffer.allocate(3 + poke_id_bytes.length );
+        bb.put(OpCodes.POKE);
         bb.put((byte) '\0');
+        bb.put((byte) poke_id_bytes.length);
+        bb.put(poke_id_bytes);
         byte[] bytes = bb.array();
         bb.put(1, Checksum.calc(bytes, bytes.length));
         return bb.array();

@@ -43,12 +43,15 @@ public class MainFragment extends Fragment{
     private FacebookCallback<LoginResult> mCallback = new FacebookCallback<LoginResult>() {
         @Override
         public void onSuccess(LoginResult loginResult) {
+            Client.INSTANCE.println("Facebook onSuccess");
             mAccessToken = AccessToken.getCurrentAccessToken();
+            Intent intent = new Intent(getActivity(), SplashScreen.class);
+            startActivity(intent);
         }
 
         @Override
         public void onCancel() {
-            Client.INSTANCE.println("Cancel");
+            Client.INSTANCE.println("Facebook Cancel");
         }
 
         @Override
@@ -62,6 +65,7 @@ public class MainFragment extends Fragment{
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         FacebookSdk.sdkInitialize(getActivity().getApplicationContext());
 
@@ -97,11 +101,13 @@ public class MainFragment extends Fragment{
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+
         super.onViewCreated(view, savedInstanceState);
         Intent remoteIntent = getActivity().getIntent();
 
         boolean isFromApp = remoteIntent.getBooleanExtra("FROM_APP", false);
         if(isFromApp){
+            Client.INSTANCE.println("Facebook onViewCreated isFromApp");
 
             LoginManager loginManager = LoginManager.getInstance();
             loginManager.registerCallback(mCallbackManager, mCallback);
@@ -110,6 +116,7 @@ public class MainFragment extends Fragment{
             loginManager.logInWithReadPermissions(this, permissions);
 
         }else{
+            Client.INSTANCE.println("Facebook onViewCreated !isFromApp");
             mAccessToken = null;
             Intent intent = new Intent(getActivity(), SplashScreen.class);
             //getActivity().finish();

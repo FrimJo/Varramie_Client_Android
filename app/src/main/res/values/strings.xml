@@ -7,6 +7,8 @@
     <string name="action_exit">Exit</string>
     <string name="action_logout">Log out</string>
     <string name="action_use_facebook">Log in with facebook</string>
+    <string name="action_invite_facebook">Invite friends</string>
+    <string name="action_poke">Poke others</string>
     <string name="title_activity_empty">EmptyActivity</string>
     <string name="title_activity_main">MainActivity</string>
     <string name="title_activity_liquid">LiquidActivity</string>

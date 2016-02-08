@@ -1,25 +1,10 @@
 package com.spots.liquidfun;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.opengl.GLES20;
-import android.opengl.GLSurfaceView;
-import android.opengl.GLUtils;
-import android.opengl.Matrix;
-
-import com.spots.varramie.R;
-
+import com.spots.varramie.TouchState;
+import org.jbox2d.common.Color3f;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.particle.ParticleColor;
 import org.jbox2d.particle.ParticleGroup;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
-import java.util.LinkedList;
-import java.util.List;
-
-import javax.microedition.khronos.opengles.GL10;
 
 /**
  * Created by fredrikjohansson on 15-06-18.
@@ -27,124 +12,142 @@ import javax.microedition.khronos.opengles.GL10;
 public class Cluster {
 
     private final String id;
-    private ParticleGroup _group = null;
-
-    public Color3 color = new Color3(0, 0, 255);
-
-    protected float rotation = 0.0f;
+    private final ParticleGroup _group;
 
     private Vec2[] cords;
-    private Vec2[] controllCords;
-    private Vec2[] controllVelocity;
     private ParticleColor[] colors;
     private Vec2[] velocity;
-    private Particle[] particles;
 
-
-    public Cluster(ParticleGroup grp, String _id){
+    public Cluster(ParticleGroup grp, String _id, Color3f color){
         id = _id;
-        ClusterManager.allClusters.put(_id, this);
         _group = grp;
-        cords = Physics.getParticles(grp);
-        colors = Physics.getColors(grp);
-        velocity = Physics.getVelocities(grp);
-        particles = new Particle[cords.length];
 
-        for(int i = 0; i < particles.length; i++){
-            particles[i] = new Particle(Physics.PARTICLE_RADIUS);
+        updateParticles();
+
+        for(int i = 0; i < cords.length; i++)
+            colors[i].set(color);
+    }
+
+
+    /*
+    This method is caled while the user is moving on the screen
+    it uses the touch position and the size of the touch
+    to calculate which particles to change velocity on. The velocity changed
+    is calculated base on the distance between the touch position and each
+    particle in the touch radius position.
+     */
+    private float min = 1.0f;
+
+//    public void push2(Vec2 velocity_touch, Vec2 position_screen, float touch_size){
+//        touch_size *= 2.0f;
+//        //touch_size *= Math.sqrt(Math.pow(velocity_touch.x, 2.0) + Math.pow(velocity_touch.y, 2.0))+1;
+//        touch_size *= 2.0f;
+//        if(Physics.physicsWorld.isLocked())
+//            return;
+//        if(touch_size < min && min != 0)
+//            min = touch_size;
+//
+//        // Some variable declarations where we convert
+//        // the touch position in to the physic worlds coordinates.
+//        float   group_radius_world = Renderer.screenToWorld(Physics.GROUP_RADIUS),
+//                touch_radius_world = (touch_size - min + group_radius_world / 40.0f) / min * group_radius_world * 3.0f;
+//
+//        double  hyp_sq,
+//                radius_sq = Math.pow( (double) touch_radius_world , 2.0);
+//
+//        Vec2    dif_rad,
+//                center = _group.getCenter(),
+//                dist = Renderer.screenToWorld(position_screen);
+//
+//        boolean move = false;
+//
+//
+//        Vec2 d = Renderer.screenToWorld(position_screen).sub(center);
+//        double D = Math.sqrt(Math.pow(d.x, 2.0) + Math.pow(d.y, 2.0));
+//        double B = group_radius_world;// - touch_radius_world;
+//
+//        Vec2 selection_center;
+//        if(D > B) {
+//            move = true;
+//            selection_center = d.mul( (float) (B/D) ).add( center ); // .mul( (float) (B/D) )
+//        }else
+//            selection_center = d.add( center );
+//
+//
+//        // Move the touching particles if they are near the edge of the cluster
+///*        Vec2 d = dist.sub(center);
+//        double grp_touch_sq = Math.pow(group_radius_world - touch_radius_world,2.0);
+//        double dx_sq = Math.pow(d.x,2.0);
+//        double dy_sq = Math.pow(d.y,2.0);
+//
+//
+//        if(grp_touch_sq <= dx_sq - dy_sq){
+//            move = true;
+//
+//        }*/
+//
+//        // For each particle, calculates the distance between the
+//        // touch position and the particle position.
+//        for(int i = 0; i < cords.length; i++){
+//            //dif_rad = center.sub(cords[i]);
+//            dif_rad = selection_center.sub(cords[i]);
+//            hyp_sq = Math.pow(dif_rad.x,2.0) + Math.pow(dif_rad.y,2.0);
+//
+//            // Uses above calculated difference to set the velocity of the
+//            // particles within the radius of the touch size.
+//            //if(hyp_sq < radius_sq) {
+//                if(move){
+//                    colors[i].set(Color3f.GREEN);
+//
+//                    /*try{
+//                        Physics.moveGroupQ.put(new TouchPackage( cords[i],   ));
+//                    }catch(InterruptedException e){
+//
+//                    }*/
+//                    cords[i].set(cords[i].add(dist.sub(selection_center)));
+//
+//                }else{
+//                    //colors[i].set(Color3f.RED);
+//                    colors[i].set(Color3f.BLUE);
+//                }
+//            //}else{
+//                colors[i].set(Color3f.BLUE);
+//                //velocity[i].add(Renderer.screenToWorld(velocity_touch));
+//            //}
+//        }
+//    }
+
+    public void updateParticles(){
+        cords = Physics.getParticles(_group);
+        colors = Physics.getColors(_group);
+        velocity = Physics.getVelocities(_group);
+    }
+
+    /*
+     * This method is run from the Physics.class main thread.
+     */
+    public synchronized void move(final TouchState ts){
+        updateParticles();
+        Vec2 position_world = Renderer.screenToWorld(ts.getPositionScreen());
+        Vec2 diff, center = _group.getCenter();
+
+        for(int i = 0; i < cords.length; i++){
+            diff = position_world.sub(center);
+            cords[i].addLocal(diff);
         }
 
-        setController();
-
     }
 
-    public void remote(Vec2 position_screen, float size, Vec2 _velocity){
-
-        if(cords.length != velocity.length) return;
-
-        Vec2 position_world = Renderer.screenToWorld(position_screen);
-        Vec2 dif = position_world.subLocal(_group.getCenter()).mul(1.0f / -10.0f);
-
-        for(int i = 0; i < controllCords.length; i++){
-            controllCords[i].subLocal(dif);
-            velocity[i].set(_velocity);
-        }
-    }
-
-    public void push(Vec2 position_screen, float size){
-        Vec2 position_world = Renderer.screenToWorld(position_screen);
-
-        Vec2 position = _group.getCenter();
-        Vec2 dif = position.sub(position_world).mulLocal(-3.0f);
-
-        for(int i = 0; i < controllVelocity.length; i++){
-            controllVelocity[i].addLocal(dif);
-        }
-
-
-    }
-
-    public void release(Vec2 _velocity, float size){
-
-        for(int i = 0; i < velocity.length; i++)
-            velocity[i].set(_velocity);
-    }
-
-    public void destroyPhysicsGroup() {
-        ClusterManager.allClusters.remove(id);
-        Physics.destroyGroup(_group);
-        _group = null;
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
     }
 
     public String getId(){
         return id;
     }
-
-    private void setController(){
-
-        float dx, dy;
-        Vec2 pos, center = _group.getCenter();
-        double hyp, radius_controll = Math.pow(Renderer.screenToWorld(Physics.GROUP_RADIUS / 1.5f), 2.0);
-
-        List<Vec2> controllVectorL = new LinkedList<>();
-        List<Vec2> controllVelocityL = new LinkedList<>();
-
-        //outlineCordsL.add(center);
-
-        for(int i = 0; i < cords.length; i++){
-            pos = cords[i];
-            dx = pos.x - center.x;
-            dy = pos.y - center.y;
-            hyp = Math.pow(dx,2.0) + Math.pow(dy,2.0);
-
-            if(hyp < radius_controll){
-                controllVectorL.add(cords[i]);
-                controllVelocityL.add(velocity[i]);
-            }
-
-        }
-        controllCords = new Vec2[controllVectorL.size()];
-        controllVectorL.toArray(controllCords);
-
-        controllVelocity = new Vec2[controllVelocityL.size()];
-        controllVelocityL.toArray(controllVelocity);
-
-    }
-
-    public void draw(GL10 unused) {
-
-        // Update local data from physics engine
-        rotation = _group.getAngle() * 57.2957795786f;
-        float particle_radius = Renderer.worldToScreen(Physics.physicsWorld.getParticleRadius());
-
-        for(int i = 0; i < particles.length; i++){
-            Vec2 com_screen_pos = Renderer.worldToScreen(cords[i]);
-
-            particles[i].position = com_screen_pos;
-            particles[i].rotation = rotation;
-            particles[i].size = particle_radius;
-            particles[i].draw(unused);
-        }
+    public ParticleGroup getGroup(){
+        return _group;
     }
 
 }

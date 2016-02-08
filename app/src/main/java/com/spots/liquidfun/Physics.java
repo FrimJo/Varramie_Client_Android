@@ -1,90 +1,51 @@
 package com.spots.liquidfun;
 
-import android.graphics.Color;
-
 import com.spots.varramie.Client;
-
-import org.jbox2d.callbacks.ContactImpulse;
-import org.jbox2d.callbacks.ContactListener;
-import org.jbox2d.collision.Manifold;
+import com.spots.varramie.CollisionPackage;
+import com.spots.varramie.OpCodes;
+import com.spots.varramie.TouchState;
 import org.jbox2d.collision.shapes.CircleShape;
 import org.jbox2d.common.Color3f;
 import org.jbox2d.common.Vec2;
-import org.jbox2d.dynamics.Body;
 import org.jbox2d.dynamics.TimeStep;
 import org.jbox2d.dynamics.World;
-import org.jbox2d.dynamics.contacts.Contact;
 import org.jbox2d.particle.ParticleColor;
 import org.jbox2d.particle.ParticleContact;
 import org.jbox2d.particle.ParticleGroup;
 import org.jbox2d.particle.ParticleGroupDef;
 import org.jbox2d.particle.ParticleGroupType;
-import org.jbox2d.particle.ParticleSystem;
 import org.jbox2d.particle.ParticleType;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-import java.util.Vector;
 
 public class Physics {
 
     // Defined public, should we need to modify them from elsewhere
     public static int velIterations = 8; // 6
     public static int posIterations = 3; // 6
-    public static float PARTICLE_RADIUS = 15.0f;
-    public static float GROUP_RADIUS = 150.0f;
+
+    public static float GROUP_RADIUS;
+    public static float PARTICLE_RADIUS;
 
     // Threads!
-    public static PhysicsThread pThread = null;
+    private static PhysicsThread pThread = null;
 
     // The world itself
     public static World physicsWorld = null;
 
 
-    // Our queues. Wonderful? I concur.
-    private static final Vector<Body> bodyDestroyQ = new Vector<Body>();
-    private static final Vector<BodyQueueDef> bodyCreateQ = new Vector<BodyQueueDef>();
-
-    private static final Vector<ParticleGroup> groupDestroyQ = new Vector<>();
-    private static final Vector<GroupQueueDef> groupCreateQ = new Vector<>();
-
-    // We need to keep track of how many bodies exist, so we can stop the thread
-    // when none are present, and start it up again when necessary
-    private static int bodyCount = 0;
-    private static int groupCount = 0;
-
-    public static void requestBodyCreation(BodyQueueDef bq) {
-
-        // Ship it to our queue
-        bodyCreateQ.add(bq);
-
+    public static void start(){
         if (pThread == null) {
             pThread = new PhysicsThread();
             pThread.start();
         }
-
-        // Take note of the new body
-        bodyCount++;
     }
 
-    public static void requestGroupCreation(GroupQueueDef gq) {
-
-        // Ship it to our queue
-        groupCreateQ.add(gq);
-
-        if (pThread == null) {
-            pThread = new PhysicsThread();
-            pThread.start();
-        }
-
-        // Take note of the new body
-        groupCount++;
-    }
-
-    public static void destroyBody(Body body) {
-        bodyDestroyQ.add(body);
-    }
-
-    public static void destroyGroup(ParticleGroup group) {
-        groupDestroyQ.add(group);
+    public static void clearClients(){
+        if(pThread == null)
+            return;
+        pThread.clearClients();
     }
 
     public static Vec2[] getParticles(ParticleGroup group){
@@ -125,19 +86,47 @@ public class Physics {
         return dst;
     }
 
+
     // Thread definition, this is where the physics magic happens
     private static class PhysicsThread extends Thread {
 
         // Setting this to true exits the internal update loop, and ends the thread
         public boolean stop = false;
+        private ConcurrentHashMap<String, Cluster> clustersM = new ConcurrentHashMap();
 
-        // We need to know if the thread is still running or not, just in case we try to create it
-        // after telling it to stop, but before it can finish.
-        private boolean running = false;
-
-        public boolean isRunning() {
-            return running;
+        private void clearClients(){
+            clustersM.clear();
         }
+
+
+        private Cluster createCluster(final TouchState ts, final String id){
+            /* Variable declaration */
+            ParticleGroup grp;
+            ParticleGroupDef def;
+
+            /* Creates the definition of the group */
+            CircleShape partShape = new CircleShape();
+            partShape.setRadius(Renderer.screenToWorld(Physics.GROUP_RADIUS));  // Sets the size of the cluster
+            def = new ParticleGroupDef();
+            def.color = new ParticleColor(new Color3f(0.0f, 0.0f, 1.0f));
+            def.flags = ParticleType.b2_springParticle | ParticleType.b2_destructionListener;
+            def.groupFlags = ParticleGroupType.b2_solidParticleGroup;
+            def.position.set(ts.getPositionScreen()); // Converts the screen coordinates to world coordinates
+            def.shape = partShape;
+            def.strength = 1.0f;
+            def.destroyAutomatically = false;
+
+            /* Create the Particle Group out of the Group Definition. */
+            grp = physicsWorld.createParticleGroup(def);
+            grp.setUserData(id);
+
+            /* Creates and adds the cluster to the Cluster HashMap */
+            Cluster c = new Cluster(grp, id, ts.getColor());
+            clustersM.put(id, c);
+
+            return c;
+        }
+
 
         @Override
         public void run() {
@@ -145,12 +134,9 @@ public class Physics {
             // Create world with saved gravity
             physicsWorld = new World(new Vec2(0.0f, 0.0f)); //physicsWorld = new World(new Vec2(0, -10));
             physicsWorld.setAllowSleep(true);
-            physicsWorld.setParticleGravityScale(1.0f);
-            physicsWorld.setParticleDensity(2.0f);
-            physicsWorld.setParticleDamping(1.7f);
+            physicsWorld.setParticleDamping(0.15f); // 0.35
+            physicsWorld.setParticleDensity(0.2f);
             physicsWorld.setParticleRadius(Renderer.screenToWorld(PARTICLE_RADIUS));
-
-            running = true;
 
             // Step!
             while (!stop) {
@@ -158,67 +144,110 @@ public class Physics {
                 // Record the start time, so we know how long it took to sim everything
                 long startTime = System.currentTimeMillis();
 
-                if (bodyDestroyQ.size() > 0) {
-                    synchronized (bodyDestroyQ) {
+                /* Loops-through all the touch states in the Hash Map and
+                 * checks whether the ID behind each touch state exists in the
+                 * cluster Hash Map. If not add it, else set its new position,
+                 * and then move the physic particles to the right place in the
+                 * physics world. */
 
-                        for (Body body : bodyDestroyQ) {
-                            physicsWorld.destroyBody(body);
-                            bodyCount--;
-                        }
+                for(Map.Entry<String, TouchState> entry : Client.INSTANCE.getTouchMapValues()){
+                    TouchState ts = entry.getValue();
+                    switch (ts.getState()) {
+                        case OpCodes.ACTION_DOWN:
+                        case OpCodes.ACTION_MOVE:
+                            Cluster c;
+                            if (clustersM.containsKey(entry.getKey()))
+                                c = clustersM.get(entry.getKey());
+                            else
+                                c = createCluster(ts, entry.getKey());
+                            c.move(ts);
+                            break;
+                        case OpCodes.ACTION_UP:
+                            if (clustersM.containsKey(entry.getKey())){
+                                physicsWorld.destroyParticlesInGroup(clustersM.remove(entry.getKey()).getGroup(), true);
 
-                        bodyDestroyQ.clear();
+                            }
+                            break;
+                        default:
+                            break;
                     }
                 }
 
-                if (groupDestroyQ.size() > 0) {
-                    synchronized (groupDestroyQ) {
 
-                        for (ParticleGroup group : groupDestroyQ) {
-                            physicsWorld.destroyParticlesInGroup(group, false);
-                            groupCount--;
+
+                /* This part handles the collision detection */
+
+                if(physicsWorld.getParticleContactCount() > 0){
+
+
+                    ParticleContact[] particleContacts = physicsWorld.getParticleContacts();
+                    ParticleGroup[] groups = physicsWorld.getParticleGroupList();
+
+                    for(int i = 0; i < particleContacts.length; i++){
+                        if(particleContacts[i].flags == 0 )
+                            break;
+
+
+                        int indexA = particleContacts[i].indexA;
+                        int indexB = particleContacts[i].indexB;
+
+                        if(indexA == -1 || indexB == -1 )
+                            break;
+
+                        String idA = ( (String) groups[indexA].getUserData() );
+                        String idB = ( (String) groups[indexB].getUserData() );
+
+                        if(!idA.equals(idB)){
+                            Vec2 position = physicsWorld.getParticlePositionBuffer()[particleContacts[i].indexA];
+                            try{
+                                Client.INSTANCE.addPackage(new CollisionPackage(position, idA, idB));
+                            }catch(InterruptedException e){
+                                Client.INSTANCE.println("InterruptedException in collitionhandling: ");
+                                e.printStackTrace();
+                            }
+                            Client.INSTANCE.onColide();
+                            break;
                         }
 
-                        groupDestroyQ.clear();
+                        /*
+                         * Resets the flag to hinder old collision to be re detected
+                         */
+                        particleContacts[i].flags = 0;
+
                     }
                 }
 
-                if (bodyCreateQ.size() > 0) {
-                    synchronized (bodyCreateQ) {
-
-                        // Handle creations
-                        for (BodyQueueDef bq : bodyCreateQ) {
-                            Renderer.actors.get(bq.getActorID()).onBodyCreation(physicsWorld.createBody(bq.getBd()));
-                        }
-                        bodyCreateQ.clear();
-                    }
-                }
-
-                if (groupCreateQ.size() > 0) {
-                    synchronized (groupCreateQ) {
-
-                        // Handle creations
-                        for (GroupQueueDef gq : groupCreateQ) {
-                            ParticleGroup grp = physicsWorld.createParticleGroup(gq.getGd());
-                            grp.setUserData(gq.getGroupID());
-                            Renderer.groupQ.add(grp);
-                        }
-
-                        groupCreateQ.clear();
-                    }
+                /* Adds some friction to the clusters so they don't spin for ever. */
+                Vec2[] velocities = physicsWorld.getParticleVelocityBuffer();
+                for(int i = 0; i < physicsWorld.getParticleCount(); i++) {
+                    velocities[i].x += (velocities[i].x < 0.0f) ? 0.01f : - 0.01f;
+                    velocities[i].y += (velocities[i].y < 0.0f) ? 0.01f : - 0.01f;
                 }
 
                 TimeStep step = new TimeStep();
-                step.dt = 0.016666666f;
+                step.dt = 0.016666666f; // add a zero
                 step.velocityIterations = velIterations;
                 step.positionIterations = posIterations;
 
+
                 // Perform step, calculate elapsed time and divide by 1000 to get it
                 // in seconds
-                physicsWorld.step(step.dt, step.velocityIterations, step.positionIterations);
+                try{
+                    //mParticleSystem.solve(step);
+                    //mParticleSystem.updateContacts(false);
+                    physicsWorld.step(step.dt, step.velocityIterations, step.positionIterations);
 
-                /*if (bodyCount == 0 && groupCount == 0) {
-                    stop = true;
-                }*/
+
+                    //physicsWorld.step(step.dt, step.velocityIterations, step.positionIterations);
+
+                }catch(NullPointerException e){
+
+                }
+
+                // Wake up Renderer
+                synchronized (Renderer.lock){
+                    Renderer.lock.notify();
+                }
 
                 long simTime = System.currentTimeMillis() - startTime;
 
@@ -230,8 +259,6 @@ public class Physics {
                     }
                 }
             }
-
-            running = false;
         }
     }
 }

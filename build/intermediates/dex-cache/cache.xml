@@ -2,18 +2,18 @@
 <items version="2" >
 
     <item
-        jar="/Users/fredrikjohansson/.gradle/caches/modules-2/files-2.1/com.parse.bolts/bolts-android/1.1.4/129874135e6081269ace2312092031558865de12/bolts-android-1.1.4.jar"
+        jar="/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/build/intermediates/exploded-aar/com.facebook.android/facebook-android-sdk/4.1.0/jars/classes.jar"
         jumboMode="false"
-        revision="23.0.0 rc2"
-        sha1="129874135e6081269ace2312092031558865de12">
-        <dex dex="/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/build/intermediates/pre-dexed/debug/bolts-android-1.1.4-75089a01cc47e9c78416d02a89b32db1e07d57d0.jar" />
+        revision="23.0.0 rc3"
+        sha1="a78bfd2ec508b123ee7c03f4006ba7996ef9a8dc">
+        <dex dex="/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/build/intermediates/pre-dexed/release/classes-83c1ca13289fcc7a98b7066a047fe756941b1b6e.jar" />
     </item>
     <item
-        jar="/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/build/intermediates/exploded-aar/com.facebook.android/facebook-android-sdk/4.0.0/jars/classes.jar"
+        jar="/Users/fredrikjohansson/.gradle/caches/modules-2/files-2.1/com.parse.bolts/bolts-android/1.2.0/6ee2953ccf51ce72b6d548c30c4633b99eb4f9dd/bolts-android-1.2.0.jar"
         jumboMode="false"
-        revision="23.0.0 rc2"
-        sha1="0f254ec13d6671680482d2218f01ecf14dfa93e6">
-        <dex dex="/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/build/intermediates/pre-dexed/debug/classes-84b99daa7545ac12b6648b74ab96409112a0b3e5.jar" />
+        revision="23.0.0 rc3"
+        sha1="6ee2953ccf51ce72b6d548c30c4633b99eb4f9dd">
+        <dex dex="/Users/fredrikjohansson/StudioProjects/Varramie_Client/app/build/intermediates/pre-dexed/release/bolts-android-1.2.0-108159e28e527c27b0f51373721d5790f600999e.jar" />
     </item>
 
 </items>

@@ -18,12 +18,14 @@ import com.spots.liquidfun.Cluster;
 import com.spots.liquidfun.ClusterManager;
 import com.spots.liquidfun.Renderer;
 
+import org.jbox2d.collision.Collision;
 import org.jbox2d.common.Vec2;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.SocketException;
@@ -41,14 +43,10 @@ public class UDP extends Service {
 
     protected Boolean				stop = false;
 
-    private final int				PORT = 4446;
-    private final String			IP = "224.0.0.3";
-
     private InetAddress				server_address;
-    private  int					server_port;
-    private  MulticastSocket		multiSocket;
+    private int					    server_port;
+    private DatagramSocket	        socket;
 
-    private  InetAddress			group_address;
     private boolean 				hasJoined = false;
     private boolean					receiveStop = false;
     private boolean					stopSender = false;
@@ -82,15 +80,13 @@ public class UDP extends Service {
             this.server_address = InetAddress.getByAddress(byteAddress);
             this.server_port = intent.getIntExtra("SERVER_PORT_INT", 0);
             this.userId = intent.getStringExtra("USER_ID_STRING");
+            ClusterManager.myClusterId = userId;
         } catch (UnknownHostException e) {
             Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
         }
 
         try {
-            this.multiSocket = new MulticastSocket(PORT);
-            this.group_address = InetAddress.getByName(IP);
-            this.multiSocket.joinGroup(group_address);
-            //this.multiSocket.joinGroup(new InetSocketAddress(this.group_address, this.PORT), NetworkInterface.getByName("wlan0"));
+            this.socket = new DatagramSocket();
         } catch (IOException e) {
             Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
         }
@@ -116,12 +112,7 @@ public class UDP extends Service {
         this.joinThread.interrupt();
         this.senderThread.interrupt();
         this.receiveThread.interrupt();
-        try {
-            multiSocket.leaveGroup(group_address);
-        } catch (IOException e) {
-            // Catches the exception but does nothing
-        }
-        this.multiSocket.close();
+        this.socket.close();
         return super.stopService(name);
     }
 
@@ -141,6 +132,7 @@ public class UDP extends Service {
 
         @Override
         public void run() {
+            MainActivity.threads++;
             Looper.prepare();
             byte[] buffer = new byte[BUFFER_SIZE];
             DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
@@ -148,19 +140,36 @@ public class UDP extends Service {
 
             while (!receiveStop) {
                 try {
-                    multiSocket.receive(receivePacket);
+                    socket.receive(receivePacket);
 
                     byte[] bytes = receivePacket.getData();
-                    byte[] byteArray;
-                    ByteBuffer bb;
                     byte action = bytes[0];
                     switch (action) {
                         case OpCodes.JOIN:
-                            hasJoined = true;
+                            /*int join_id_length = bytes[2] & 0xff;
+                            ByteBuffer join_buffer = ByteBuffer.allocateDirect(3 + join_id_length);
+                            join_buffer.put(bytes, 0, 3 + join_id_length);
+                            byte[] join_byteArray = new byte[3 + join_id_length];
+                            join_buffer.position(0);
+                            join_buffer.get(join_byteArray);
+
+                            if(!Checksum.isCorrect(join_byteArray))
+                                throw new ChecksumException("The checksum of the package is not correct.");
+
+                            byte[] join_id_array = new byte[join_id_length];
+                            join_buffer.position(3);
+                            join_buffer.get(join_id_array);
+                            String join_id = new String(join_id_array, "UTF-8");
+
+                            if(join_id.equals(userId))*/
+                                hasJoined = true;
+                            //else if(hasJoined)
+                                // User joined is another user, and active user has joined
+
+
                             break;
                         case OpCodes.NOTREG:
-                            bb = ByteBuffer.wrap( new byte[]{bytes[0], bytes[1]}, 0, 2);
-                            if(!Checksum.isCorrect(bb.array()))
+                            if(!Checksum.isCorrect(new byte[]{bytes[0], bytes[1]}))
                                 throw new ChecksumException("Wrong checksum received in NOTREG");
                             if (!joinThread.isAlive()) {
                                 aliveThread.interrupt();
@@ -182,8 +191,7 @@ public class UDP extends Service {
                             }
                             break;
                         case OpCodes.QUIT:
-                            bb = ByteBuffer.wrap( new byte[]{bytes[0], bytes[1], bytes[2] }, 0, 3);
-                            if(!Checksum.isCorrect(bb.array()))
+                            if(!Checksum.isCorrect(new byte[]{bytes[0], bytes[1], bytes[2]}))
                                 throw new ChecksumException("Wrong checksum received in QUIT");
 
                             joinThread.start();
@@ -191,12 +199,37 @@ public class UDP extends Service {
                             break;
                         case OpCodes.ALIVE:
                             break;
-                        default:
+                        case OpCodes.FORM:
 
-                            int default_id_length = bytes[2] & 0xff;
-                            bb = ByteBuffer.allocateDirect(23 + default_id_length);
-                            bb.put(bytes, 0, 23 + default_id_length);
-                            byteArray = new byte[23 + default_id_length];
+                            // Converts the buffer in to an array to
+                            // be able to see whether the checksum is correct.
+                            int form_url_length = bytes[2] & 0xff;
+                            int total_length = 3 + form_url_length;
+                            ByteBuffer form_buffer = ByteBuffer.allocateDirect(total_length);
+                            form_buffer.put(bytes, 0, total_length);
+                            byte[] form_byteArray = new byte[total_length];
+                            form_buffer.position(0);
+                            form_buffer.get(form_byteArray);
+
+                            if(!Checksum.isCorrect(form_byteArray))
+                                throw new ChecksumException("The checksum of the package is not correct.");
+
+                            // Gets the URL from the package
+                            byte[] form_url_array = new byte[form_url_length];
+                            form_buffer.position(3);
+                            form_buffer.get(form_url_array);
+                            String form_url = new String(form_url_array, "UTF-8");
+                            MainActivity.notifyFormUrl(form_url.concat("="+userId));
+                            break;
+                        case OpCodes.POKE:
+                            Client.INSTANCE.println("Received packet POKE.");
+
+                            int poke_id_length = bytes[2] & 0xff;		// Retrieves the length of the id by converting it from 'byte' to 'int'
+                            int totalLength_poke = 3 + poke_id_length;
+
+                            ByteBuffer bb = ByteBuffer.allocateDirect(totalLength_poke);
+                            bb.put(bytes, 0, totalLength_poke);
+                            byte[] byteArray = new byte[totalLength_poke];
                             bb.position(0);
                             bb.get(byteArray);
 
@@ -204,18 +237,35 @@ public class UDP extends Service {
                                 throw new ChecksumException("The checksum of the package is not correct.");
 
 
+                            MainActivity.notifyPoke();
+
+
+                            break;
+                        default:
+
+                            int default_id_length = bytes[2] & 0xff;
+                            ByteBuffer default_buffer = ByteBuffer.allocateDirect(23 + default_id_length);
+                            default_buffer.put(bytes, 0, 23 + default_id_length);
+                            byte[] default_byteArray = new byte[23 + default_id_length];
+                            default_buffer.position(0);
+                            default_buffer.get(default_byteArray);
+
+                            if(!Checksum.isCorrect(default_byteArray))
+                                throw new ChecksumException("The checksum of the package is not correct.");
+
+
                             byte[] default_id_array = new byte[default_id_length];
-                            bb.position(3);
-                            bb.get(default_id_array);
+                            default_buffer.position(3);
+                            default_buffer.get(default_id_array);
                             String default_id = new String(default_id_array, "UTF-8");
 
 
-                            bb.position(3 + default_id_length);
-                            float x = bb.getFloat();
-                            float y = bb.getFloat();
-                            float pressure = bb.getFloat();
-                            float vel_x = bb.getFloat();
-                            float vel_y = bb.getFloat();
+                            default_buffer.position(3 + default_id_length);
+                            float x = default_buffer.getFloat();
+                            float y = default_buffer.getFloat();
+                            float pressure = default_buffer.getFloat();
+                            float vel_x = default_buffer.getFloat();
+                            float vel_y = default_buffer.getFloat();
 
                             Vec2 position_norm = new Vec2(x, y);
                             Vec2 velocity = new Vec2(vel_x, vel_y);
@@ -229,8 +279,11 @@ public class UDP extends Service {
                     Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
                 } catch (ChecksumException e) {
                     e.printStackTrace();
+                } catch (InterruptedException e){
+
                 }
             }
+            MainActivity.threads--;
         }
     }
 
@@ -242,6 +295,7 @@ public class UDP extends Service {
 
         @Override
         public void run(){
+            MainActivity.threads++;
             Looper.prepare();
             try {
                 while(ClusterManager.myClusterId == null){
@@ -256,13 +310,14 @@ public class UDP extends Service {
             while(!stop){
                 try {
                     sleep(10000);
-                    multiSocket.send(dp);
+                    socket.send(dp);
                 } catch (InterruptedException e) {
                     break;
                 } catch (IOException e) {
                     Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
                 }
             }
+            MainActivity.threads--;
         }
     }
 
@@ -275,6 +330,7 @@ public class UDP extends Service {
 
         @Override
         public void run(){
+            MainActivity.threads++;
             Looper.prepare();
             receiveStop = false;
             stopSender = false;
@@ -285,7 +341,7 @@ public class UDP extends Service {
             DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
             try {
                 while(!hasJoined){
-                    multiSocket.send(dp);
+                    socket.send(dp);
                     sleep(1000);
                 }
                 sendMessage(OpCodes.JOIN, userId);
@@ -298,6 +354,7 @@ public class UDP extends Service {
             } catch (Exception e){
                 Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
             }
+            MainActivity.threads--;
         }
 
         // Send an Intent with an action named "my-event".
@@ -318,25 +375,50 @@ public class UDP extends Service {
 
         @Override
         public void run(){
+            MainActivity.threads++;
             Looper.prepare();
-            TouchState prevTouchState = new TouchState(OpCodes.ACTION_UP, new Vec2(0.0f, 0.0f), 0.32f, new Vec2(0.0f, 0.0f));
             try {
-                while(ClusterManager.myCluster == null){
-                    sleep(1000);
-                }
 
-                Vec2 position_norm = null, velocity = null;
+                Vec2 position_screen = null, velocity = null;
+                try{ Client.INSTANCE.sender.start(); } catch(IllegalThreadStateException e){}
+
                 while(!stopSender){
-                    TouchState touchState = Client.INSTANCE.takeTouchState();
-                    if(!touchState.equals(prevTouchState)){
-                        prevTouchState = touchState;
-                        position_norm = touchState.getPositionNorm();
+                    Object o = Client.INSTANCE.takePackage();
+                    byte[] bytes;
+                    if(o.getClass() == TouchState.class){
+                        TouchState touchState = (TouchState) o;
+
+                        position_screen = touchState.getPositionScreen();
+
+                        Vec2 position_norm = new Vec2(position_screen.x / Renderer.screenW, position_screen.y / Renderer.screenH);
+
                         velocity = touchState.getVelocity();
                         byte action = touchState.getState();
-                        byte[] bytes = PDU_Factory.touch_action(position_norm.x, position_norm.y, touchState.getPressure(), action, userId, velocity.x, velocity.y);
+                        bytes = PDU_Factory.touch_action(position_norm.x, position_norm.y, touchState.getPressure(), action, userId, velocity.x, velocity.y);
                         DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
                         try {
-                            multiSocket.send(dp);
+                            socket.send(dp);
+                        } catch (SocketException e) {
+                            Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
+                        } catch (IOException e) {
+                            Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
+                        }
+                    }else if(o.getClass() == CollisionPackage.class){
+                        CollisionPackage cp = (CollisionPackage) o;
+                        bytes = PDU_Factory.collision(cp.position.x, cp.position.y, cp.idA, cp.idB);
+                        DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
+                        try {
+                            socket.send(dp);
+                        } catch (SocketException e) {
+
+                        } catch (IOException e) {
+                            Toast.makeText(getBaseContext(), e.toString(), Toast.LENGTH_SHORT).show();
+                        }
+                    }else if(o.getClass() == PokePackage.class){
+                        bytes = PDU_Factory.poke(userId);
+                        DatagramPacket dp = new DatagramPacket(bytes, bytes.length, server_address, server_port);
+                        try {
+                            socket.send(dp);
                         } catch (SocketException e) {
 
                         } catch (IOException e) {
@@ -346,12 +428,13 @@ public class UDP extends Service {
                 }
                 byte[] quitBytes = PDU_Factory.quit(userId);
                 DatagramPacket dp = new DatagramPacket(quitBytes, quitBytes.length, server_address, server_port);
-                multiSocket.send(dp);
+                socket.send(dp);
             } catch (IOException e) {
                 // Catches the exception but does nothing.
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            MainActivity.threads--;
         }
 
     }

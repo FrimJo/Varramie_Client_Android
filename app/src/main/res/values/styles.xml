@@ -15,6 +15,13 @@
     <!-- Application theme. -->
     <style name="AppTheme" parent="AppBaseTheme">
         <!-- All customizations that are NOT specific to a particular API-level can go here. -->
+        <!-- <item name="android:windowNoTitle">true</item> -->
+        <!-- <item name="windowActionBar">false</item> -->
+        <!--<item name="windowActionBarOverlay">true</item>-->
+        <item name="android:windowFullscreen">true</item>
+
+        <!-- <item name="android:windowContentOverlay">@null</item> -->
+         <!--<item name="android:immersive">true</item>-->
     </style>
 
     <style name="NoFacebookButton">
